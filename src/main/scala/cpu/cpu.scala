@@ -65,4 +65,21 @@ class Cpu extends Module {
 
   io.o_instAddr := r_inst_addr
   io.o_instReq  := r_inst_en
+
+  // Get Instruction
+  val r_inst_r1 = RegInit(0.U(32.W))
+  when  (r_inst_en & io.i_instAck) {
+    r_inst_r1 := i_instData;
+  }
+
+  // Opcode extraction and Register Read
+  val RAFunc7Bit  = r_inst_r1(31,25);
+  val RARs2Bit    = r_inst_r1(24,20);
+  val RARs17Bit   = r_inst_r1(19,15);
+  val RAFunc3Bit  = r_inst_r1(14,12);
+  val RARdBit     = r_inst_r1(11, 7);
+  val RAOpcodeBit = r_inst_r1( 6, 0);
+
+
+
 }
