@@ -1,0 +1,3 @@
+[submodule "src/main/verilog/mips-cpu"]
+	path = src/main/verilog/mips-cpu
+	url = https://github.com/jmahler/mips-cpu.git
