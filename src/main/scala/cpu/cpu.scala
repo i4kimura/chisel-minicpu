@@ -67,19 +67,117 @@ class Cpu extends Module {
   io.o_instReq  := r_inst_en
 
   // Get Instruction
-  val r_inst_r1 = RegInit(0.U(32.W))
+  val r_inst_r1 = Reg(UInt(32.W))
   when  (r_inst_en & io.i_instAck) {
-    r_inst_r1 := i_instData;
+    r_inst_r1 := io.i_instData;
   }
 
   // Opcode extraction and Register Read
-  val RAFunc7Bit  = r_inst_r1(31,25);
-  val RARs2Bit    = r_inst_r1(24,20);
-  val RARs17Bit   = r_inst_r1(19,15);
-  val RAFunc3Bit  = r_inst_r1(14,12);
-  val RARdBit     = r_inst_r1(11, 7);
-  val RAOpcodeBit = r_inst_r1( 6, 0);
+  val w_ra_func7  = Wire(UInt(7.W))
+  val w_ra_rs2    = Wire(UInt(5.W))
+  val w_ra_rs1    = Wire(UInt(5.W))
+  val w_ra_func3  = Wire(UInt(3.W))
+  val w_ra_rd     = Wire(UInt(5.W))
+  val w_ra_opcode = Wire(UInt(5.W))
+
+  w_ra_func7  := r_inst_r1(31,25)
+  w_ra_rs2    := r_inst_r1(24,20)
+  w_ra_rs1    := r_inst_r1(19,15)
+  w_ra_func3  := r_inst_r1(14,12)
+  w_ra_rd     := r_inst_r1(11, 7)
+  w_ra_opcode := r_inst_r1( 6, 2)
+
+  val u_regs = Module(new Regs)
+  val w_ex_op1 = Wire(SInt(64.W))
+  val w_ex_op2 = Wire(SInt(64.W))
+
+  u_regs.io.i_rden0   := (w_ra_opcode === "hc".asUInt(5.W)) // OP
+  u_regs.io.i_rdaddr0 := w_ra_rs1
+  w_ex_op1            := u_regs.io.o_rddata0
+
+  u_regs.io.i_rden1   := (w_ra_opcode === "hc".asUInt(5.W)) // OP
+  u_regs.io.i_rdaddr1 := w_ra_rs2
+  w_ex_op2            := u_regs.io.o_rddata1
+
+  val r_ex_func3 = Reg(UInt(3.W))
+  r_ex_func3 := w_ra_func3
+  
+  val u_alu = Module (new Alu)
+  u_alu.io.i_func := r_ex_func3
+  u_alu.io.i_op0  := w_ex_op1
+  u_alu.io.i_op1  := w_ex_op2
 
 
 
+}
+
+
+class Regs extends Module {
+  val io = IO (new Bundle {
+    val i_rden0   = Input  (Bool())
+    val i_rdaddr0 = Input  (UInt(5.W))
+    val o_rddata0 = Output (SInt(64.W))
+                          
+    val i_rden1   = Input  (Bool())
+    val i_rdaddr1 = Input  (UInt(5.W))
+    val o_rddata1 = Output (SInt(64.W))
+
+    val i_wren   = Input  (Bool())
+    val i_wraddr = Input  (UInt(5.W))
+    val i_wrdata = Input  (SInt(64.W))
+  })
+
+  val r_regs = Reg(Vec(32, SInt(64.W)))
+
+  when (io.i_rden0 && (io.i_rdaddr0 != 0.U(64.W))) {
+    io.o_rddata0 := r_regs(io.i_rdaddr0)
+  } .otherwise {
+    io.o_rddata0 := 0.S(64.W)
+  }
+
+  when (io.i_rden1 && (io.i_rdaddr1 != 0.U(64.W))) {
+    io.o_rddata1 := r_regs(io.i_rdaddr1)
+  } .otherwise {
+    io.o_rddata1 := 0.S(64.W)
+  }
+
+  when (io.i_wren && (io.i_wraddr != 0.U(64.W))) {
+    r_regs(io.i_wraddr) := io.i_wrdata
+  }
+}
+
+
+class Alu extends Module {
+  val io = IO (new Bundle {
+    val i_func = Input (UInt(3.W))
+    val i_op0  = Input (SInt(64.W))
+    val i_op1  = Input (SInt(64.W))
+
+    val o_res  = Output (SInt(64.W))
+  })
+
+  val w_res = Wire(SInt(64.W))
+  when (io.i_func === 0.U) {
+    w_res := io.i_op0 + io.i_op1
+  } .elsewhen (io.i_func === 1.U(3.W)) {
+    w_res := io.i_op0 - io.i_op1
+  } .elsewhen (io.i_func === 2.U(3.W)) {
+    // w_res := io.i_op0 << io.i_op1
+    w_res := io.i_op0 + io.i_op1
+  } .elsewhen (io.i_func === 3.U(3.W)) {
+    // w_res := io.i_op0 >> io.i_op1
+    w_res := io.i_op0 + io.i_op1
+  } .elsewhen (io.i_func === 4.U(3.W)) {
+    w_res := io.i_op0 & io.i_op1
+  } .elsewhen (io.i_func === 5.U(3.W)) {
+    w_res := io.i_op0 | io.i_op1
+  } .elsewhen (io.i_func === 6.U(3.W)) {
+    w_res := io.i_op0 ^ io.i_op1
+  } .otherwise {
+    w_res := io.i_op0
+  }
+
+  val r_res = Reg(SInt(64.W))
+  r_res := w_res
+  io.o_res := w_res
 }
