@@ -1,5 +1,5 @@
 test:
-	sbt 'testOnly chisel_type.Tester -- -z Basic'
+	sbt 'testOnly counting_adders.Tester -- -z Basic'
 
 clean:
 	rm -rf test_run_dir project/target target
