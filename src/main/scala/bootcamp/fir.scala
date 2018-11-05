@@ -27,8 +27,8 @@ class GenericFIR (length: Int) extends Module {
     val out    = Output(UInt(8.W))
   })
 
-  val taps := RegInit(Vec(Seq.fill(length)(0.U(8.W))))
-  taps.
+  val taps = RegInit(Vec.fill(length)(0.U(8.W)))
+
   for (i <- 0 until length) {
     if (i == 0) taps(0) := io.in
     else        taps(i) := taps(i-1)
