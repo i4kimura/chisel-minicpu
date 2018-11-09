@@ -3,5 +3,5 @@
 *.fir
 *.json
 
-project/target
+project
 target
