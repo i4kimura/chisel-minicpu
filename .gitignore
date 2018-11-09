@@ -1,0 +1,7 @@
+# Generated files
+*.v
+*.fir
+*.json
+
+project/target
+target
