@@ -4,18 +4,22 @@ import chisel3._
 import chisel3.Bool
 
 
+class InstBus extends Bundle {
+  val req  = Input(Bool())
+  val addr = Input(UInt(8.W))
+  val data = Input(UInt(32.W))
+}
+
+
+class CpuTopIo extends Bundle {
+  val run       = Input(Bool())
+  val instbus   = new InstBus()
+  val debugpath = Flipped(new InstBus())
+}
+
+
 class CpuTop extends Module {
-  val io = IO (new Bundle {
-    val i_run     = Input(Bool())
-
-    val i_memReq  = Input(Bool())
-    val i_memAddr = Input(UInt(8.W))
-    val i_memData = Input(UInt(32.W))
-
-    val o_DebugInstReq  = Output(Bool())
-    val o_DebugInstAddr = Output(UInt(8.W))
-    val o_DebugInstData = Output(UInt(32.W))
-  })
+  val io = IO (new CpuTopIo())
 
   val memory = Module(new Memory)
   val cpu    = Module(new Cpu)
@@ -30,16 +34,16 @@ class CpuTop extends Module {
   cpu.io.i_instAck   := memory.io.o_rdEn
   cpu.io.i_instData  := memory.io.o_rdData
 
-  cpu.io.i_run       := io.i_run
+  cpu.io.i_run       := io.run
 
   // Memory Load for External Debug
-  memory.io.i_extWen  := io.i_memReq
-  memory.io.i_extAddr := io.i_memAddr
-  memory.io.i_extData := io.i_memData
+  memory.io.i_extWen  := io.instbus.req
+  memory.io.i_extAddr := io.instbus.addr
+  memory.io.i_extData := io.instbus.data
 
-  io.o_DebugInstReq  := w_instReq
-  io.o_DebugInstAddr := w_instAddr
-  io.o_DebugInstData := memory.io.o_rdData
+  io.debugpath.req  := w_instReq
+  io.debugpath.addr := w_instAddr
+  io.debugpath.data := memory.io.o_rdData
 }
 
 
@@ -87,6 +91,9 @@ class Cpu extends Module {
   w_ra_rd     := r_inst_r1(11, 7)
   w_ra_opcode := r_inst_r1( 6, 2)
 
+  val cpath = Module(new CtlPath())
+  cpath.io.
+
   val u_regs = Module(new Regs)
   val w_ex_op1 = Wire(SInt(64.W))
   val w_ex_op2 = Wire(SInt(64.W))
@@ -101,7 +108,7 @@ class Cpu extends Module {
 
   val r_ex_func3 = Reg(UInt(3.W))
   r_ex_func3 := w_ra_func3
-  
+
   val u_alu = Module (new Alu)
   u_alu.io.i_func := r_ex_func3
   u_alu.io.i_op0  := w_ex_op1
@@ -117,7 +124,7 @@ class Regs extends Module {
     val i_rden0   = Input  (Bool())
     val i_rdaddr0 = Input  (UInt(5.W))
     val o_rddata0 = Output (SInt(64.W))
-                          
+
     val i_rden1   = Input  (Bool())
     val i_rdaddr1 = Input  (UInt(5.W))
     val o_rddata1 = Output (SInt(64.W))
@@ -127,7 +134,7 @@ class Regs extends Module {
     val i_wrdata = Input  (SInt(64.W))
   })
 
-  val r_regs = Reg(Vec(32, SInt(64.W)))
+  val r_regs = RegInit( Vec(32, SInt(64.W)).fromBits(0.U) )
 
   when (io.i_rden0 && (io.i_rdaddr0 != 0.U(64.W))) {
     io.o_rddata0 := r_regs(io.i_rdaddr0)

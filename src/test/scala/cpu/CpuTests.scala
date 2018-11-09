@@ -39,42 +39,42 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c) {
 
   private val  cpu_tb = c
 
-  poke (cpu_tb.io.i_run, 0)
+  poke (cpu_tb.io.run, 0)
 
   for (addr <- 0 to mem_init.length-1) {
-    poke (cpu_tb.io.i_memReq, 1)
-    poke (cpu_tb.io.i_memAddr, addr)
-    poke (cpu_tb.io.i_memData, mem_init(addr) & 0x0000FFFFFFFFL)
+    poke (cpu_tb.io.instbus.req, 1)
+    poke (cpu_tb.io.instbus.addr, addr)
+    poke (cpu_tb.io.instbus.data, mem_init(addr) & 0x0000FFFFFFFFL)
 
     step(1)
   }
 
-  poke (cpu_tb.io.i_memReq , 0)
-  poke (cpu_tb.io.i_memAddr, 0)
-  poke (cpu_tb.io.i_memData, 0)
+  poke (cpu_tb.io.instbus.req , 0)
+  poke (cpu_tb.io.instbus.addr, 0)
+  poke (cpu_tb.io.instbus.data, 0)
 
   step(1)
   step(1)
 
-  poke (cpu_tb.io.i_run, 1)
+  poke (cpu_tb.io.run, 1)
   step(1)
-  expect(cpu_tb.io.o_DebugInstReq,  1)
-  expect(cpu_tb.io.o_DebugInstAddr, 0)
+  expect(cpu_tb.io.debugpath.req,  1)
+  expect(cpu_tb.io.debugpath.addr, 0)
 
   step(1)
   for (step_idx <- 0 to 10 by 1) {
     val hexwidth = 8
 
-    expect(cpu_tb.io.o_DebugInstReq,  1)
-    expect(cpu_tb.io.o_DebugInstAddr, step_idx * 4)
+    expect(cpu_tb.io.debugpath.req,  1)
+    expect(cpu_tb.io.debugpath.addr, step_idx * 4)
 
-    printf(s"<Info: Step %02d Instruction %0${hexwidth}x is fetched>\n", step_idx, peek(cpu_tb.io.o_DebugInstData))
+    printf(s"<Info: Step %02d Instruction %0${hexwidth}x is fetched>\n", step_idx, peek(cpu_tb.io.debugpath.data))
 
     step(1)
   }
 }
 
-class CpuTopTester extends ChiselFlatSpec {
+class Tester extends ChiselFlatSpec {
   private val backendNames = if(firrtl.FileUtils.isCommandAvailable("verilator")) {
     Array("firrtl", "verilator")
   }

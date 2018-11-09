@@ -3,3 +3,6 @@ test:
 
 clean:
 	rm -rf test_run_dir project target *.v *.fir *.json
+
+cpu_run:
+	sbt 'testOnly cpu.Tester -- -z Basic'
