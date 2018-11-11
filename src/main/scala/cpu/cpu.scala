@@ -3,7 +3,6 @@ package cpu
 import chisel3._
 import chisel3.Bool
 
-
 class InstBus extends Bundle {
   val req  = Input(Bool())
   val addr = Input(UInt(8.W))
@@ -31,6 +30,10 @@ class CpuTop extends Module {
   memory.io.i_ren    := w_instReq
   memory.io.i_rdAddr := w_instAddr(7, 2)
 
+  memory.io.i_wen    := false.B
+  memory.io.i_wrAddr := 0.U
+  memory.io.i_wrData := 0.U
+
   cpu.io.i_instAck   := memory.io.o_rdEn
   cpu.io.i_instData  := memory.io.o_rdData
 
@@ -44,6 +47,7 @@ class CpuTop extends Module {
   io.debugpath.req  := w_instReq
   io.debugpath.addr := w_instAddr
   io.debugpath.data := memory.io.o_rdData
+
 }
 
 
@@ -92,7 +96,8 @@ class Cpu extends Module {
   w_ra_opcode := r_inst_r1( 6, 2)
 
   val cpath = Module(new CtlPath())
-  cpath.io.
+
+  cpath.io.inst := io.i_instData
 
   val u_regs = Module(new Regs)
   val w_ex_op1 = Wire(SInt(64.W))
@@ -105,6 +110,10 @@ class Cpu extends Module {
   u_regs.io.i_rden1   := (w_ra_opcode === "hc".asUInt(5.W)) // OP
   u_regs.io.i_rdaddr1 := w_ra_rs2
   w_ex_op2            := u_regs.io.o_rddata1
+
+  u_regs.io.i_wren   := false.B
+  u_regs.io.i_wraddr := 0.U
+  u_regs.io.i_wrdata := 0.S
 
   val r_ex_func3 = Reg(UInt(3.W))
   r_ex_func3 := w_ra_func3
