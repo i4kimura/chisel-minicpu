@@ -3,6 +3,7 @@ package cpu
 import chisel3._
 import chisel3.Bool
 
+import DecodeConsts._
 
 class InstBus extends Bundle {
   val req  = Input(Bool())
@@ -135,10 +136,13 @@ class Cpu extends Module {
   r_ex_func3 := w_ra_func3
 
   val u_alu = Module (new Alu)
-  u_alu.io.i_func := r_ex_func3
-  u_alu.io.i_op0  := w_ex_op1
-  u_alu.io.i_op1  := w_ex_op2
-
+  u_alu.io.i_func := cpath.io.ctl.alu_fun
+  u_alu.io.i_op0  := Mux(cpath.io.ctl.op1_sel === OP1_RS1,  w_ex_op1,
+                     Mux(cpath.io.ctl.op1_sel === OP1_IMU, 0.S,
+                     Mux(cpath.io.ctl.op1_sel === OP1_IMZ, 0.S, 0.S)))
+  u_alu.io.i_op1  := Mux(cpath.io.ctl.op2_sel === OP2_RS2,  w_ex_op2,
+                     Mux(cpath.io.ctl.op2_sel === OP2_IMI, 0.S,
+                     Mux(cpath.io.ctl.op2_sel === OP2_IMS, 0.S, 0.S)))
 }
 
 
@@ -168,7 +172,7 @@ class Regs extends Module {
 
 class Alu extends Module {
   val io = IO (new Bundle {
-    val i_func = Input (UInt(3.W))
+    val i_func = Input (UInt(4.W))
     val i_op0  = Input (SInt(64.W))
     val i_op1  = Input (SInt(64.W))
 
@@ -176,22 +180,28 @@ class Alu extends Module {
   })
 
   val w_res = Wire(SInt(64.W))
-  when (io.i_func === 0.U) {
+  when (io.i_func === ALU_ADD) {
     w_res := io.i_op0 + io.i_op1
-  } .elsewhen (io.i_func === 1.U(3.W)) {
+  } .elsewhen (io.i_func === ALU_SUB) {
     w_res := io.i_op0 - io.i_op1
-  } .elsewhen (io.i_func === 2.U(3.W)) {
-    // w_res := io.i_op0 << io.i_op1
-    w_res := io.i_op0 + io.i_op1
-  } .elsewhen (io.i_func === 3.U(3.W)) {
-    // w_res := io.i_op0 >> io.i_op1
-    w_res := io.i_op0 + io.i_op1
-  } .elsewhen (io.i_func === 4.U(3.W)) {
+  } .elsewhen (io.i_func === ALU_SLL) {
+    w_res := (io.i_op0.asUInt << io.i_op1(5,0).asUInt).asSInt
+  } .elsewhen (io.i_func === ALU_SRL) {
+    w_res := (io.i_op0.asUInt >> io.i_op1(5,0).asUInt).asSInt
+  } .elsewhen (io.i_func === ALU_SRA) {
+    w_res := (io.i_op0 >> io.i_op1(5,0).asUInt).asSInt
+  } .elsewhen (io.i_func === ALU_AND) {
     w_res := io.i_op0 & io.i_op1
-  } .elsewhen (io.i_func === 5.U(3.W)) {
+  } .elsewhen (io.i_func === ALU_OR) {
     w_res := io.i_op0 | io.i_op1
-  } .elsewhen (io.i_func === 6.U(3.W)) {
+  } .elsewhen (io.i_func === ALU_XOR) {
     w_res := io.i_op0 ^ io.i_op1
+  } .elsewhen (io.i_func === ALU_SLT) {
+    w_res := (io.i_op0 > io.i_op1).asSInt
+  } .elsewhen (io.i_func === ALU_SLTU) {
+    w_res := (io.i_op0.asUInt > io.i_op1.asUInt).asSInt
+  } .elsewhen (io.i_func === ALU_COPY1) {
+    w_res := io.i_op0
   } .otherwise {
     w_res := io.i_op0
   }
