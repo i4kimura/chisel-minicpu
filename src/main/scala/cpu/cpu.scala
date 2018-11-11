@@ -128,10 +128,6 @@ class Cpu extends Module {
   u_regs.io.rdaddr1 := w_ra_rs2
   w_ex_op2          := u_regs.io.rddata1
 
-  u_regs.io.wren   := false.B
-  u_regs.io.wraddr := 0.U
-  u_regs.io.wrdata := 0.S
-
   val r_ex_func3 = Reg(UInt(3.W))
   r_ex_func3 := w_ra_func3
 
@@ -143,6 +139,11 @@ class Cpu extends Module {
   u_alu.io.i_op1  := Mux(cpath.io.ctl.op2_sel === OP2_RS2,  w_ex_op2,
                      Mux(cpath.io.ctl.op2_sel === OP2_IMI, 0.S,
                      Mux(cpath.io.ctl.op2_sel === OP2_IMS, 0.S, 0.S)))
+
+  u_regs.io.wren   := (cpath.io.ctl.alu_fun =/= ALU_X)
+  u_regs.io.wraddr := w_ra_rd
+  u_regs.io.wrdata := u_alu.io.o_res
+
 }
 
 
@@ -209,4 +210,9 @@ class Alu extends Module {
   val r_res = Reg(SInt(64.W))
   r_res := w_res
   io.o_res := w_res
+}
+
+
+object CpuTop extends App {
+  chisel3.Driver.execute(args, () => new CpuTop)
 }

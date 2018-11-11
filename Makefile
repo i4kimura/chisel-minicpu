@@ -6,3 +6,6 @@ clean:
 
 cpu_run:
 	sbt 'testOnly cpu.Tester -- -z Basic'
+
+cpu_verilog:
+	sbt 'runMain cpu.CpuTop'

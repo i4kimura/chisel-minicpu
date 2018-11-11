@@ -94,4 +94,5 @@ class Tester extends ChiselFlatSpec {
       c => new CpuTopTests(c)
     } should be (true)
   }
+
 }
