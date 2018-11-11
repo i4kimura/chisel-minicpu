@@ -2,40 +2,41 @@ package cpu
 
 import chisel3._
 
+class MemoryIo extends Bundle {
+  val wen    = Input(Bool())
+  val wraddr = Input(UInt(8.W))
+  val wrdata = Input(UInt(32.W))
+
+  val ren    = Input(Bool())
+  val rdaddr = Input(UInt(8.W))
+  val rddata = Output(UInt(32.W))
+  val rden   = Output(Bool())
+
+  // External Memory Input
+  val extwen  = Input(Bool())
+  val extaddr = Input(UInt(8.W))
+  val extdata = Input(UInt(32.W))
+}
+
 class Memory extends Module {
-  val io = IO(new Bundle {
-    val i_wen    = Input(Bool())
-    val i_wrAddr = Input(UInt(8.W))
-    val i_wrData = Input(UInt(32.W))
-
-    val i_ren    = Input(Bool())
-    val i_rdAddr = Input(UInt(8.W))
-    val o_rdData = Output(UInt(32.W))
-    val o_rdEn   = Output(Bool())
-
-    // External Memory Input
-    val i_extWen  = Input(Bool())
-    val i_extAddr = Input(UInt(8.W))
-    val i_extData = Input(UInt(32.W))
-  })
+  val io = IO(new MemoryIo)
 
   val memory = Mem(256, UInt(32.W))
   val r_en   = Reg(Bool())
 
-  when (io.i_extWen) {
-    memory(io.i_extAddr) := io.i_extData
-    printf(s"<Info : Address %x : Write %x>\n", io.i_extAddr, io.i_extData)
+  when (io.extwen) {
+    memory(io.extaddr) := io.extdata
+    printf(s"<Info : Address %x : Write %x>\n", io.extaddr, io.extdata)
   } .otherwise {
-    when (io.i_wen) {
-      memory(io.i_wrAddr) := io.i_wrData
+    when (io.wen) {
+      memory(io.wraddr) := io.wrdata
     }
   }
 
-  r_en := io.i_ren
+  r_en := io.ren
 
-  io.o_rdData := memory(io.i_rdAddr)
-  io.o_rdEn  := r_en
+  io.rddata := memory(io.rdaddr)
+  io.rden  := r_en
 
   // External Data Input
-
 }
