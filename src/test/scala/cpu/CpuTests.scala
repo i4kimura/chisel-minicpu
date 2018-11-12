@@ -2,7 +2,7 @@ package cpu
 
 import chisel3.iotesters
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
-
+import scala.io.Source
 
 class CpuTopTests(c: CpuTop) extends PeekPokeTester(c) {
 
@@ -37,14 +37,27 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c) {
     0x00000000
   )
 
+  val fp    = Source.fromFile("test.hex")
+  val lines = fp.getLines
+
+  val memory = lines.map{ line =>
+    val split_line = line.split(" ")
+    if (split_line.length == 2) {
+      Array(Integer.parseInt(line.split(" ")(0).diff("@"), 16),
+        Integer.parseUnsignedInt(line.split(" ")(1), 16))
+    } else {
+      Array(Integer.parseInt(line.split(" ")(0).diff("@"), 16), 0)
+    }
+  }
+
   private val  cpu_tb = c
 
   poke (cpu_tb.io.run, 0)
 
-  for (addr <- 0 to mem_init.length-1) {
+  memory.foreach{ mem =>
     poke (cpu_tb.io.instbus.req, 1)
-    poke (cpu_tb.io.instbus.addr, addr)
-    poke (cpu_tb.io.instbus.data, mem_init(addr) & 0x0000FFFFFFFFL)
+    poke (cpu_tb.io.instbus.addr, mem(0))
+    poke (cpu_tb.io.instbus.data, mem(1))
 
     step(1)
   }

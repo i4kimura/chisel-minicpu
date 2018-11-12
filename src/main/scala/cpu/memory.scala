@@ -26,7 +26,7 @@ class Memory extends Module {
 
   when (io.extwen) {
     memory(io.extaddr) := io.extdata
-    printf(s"<Info : Address %x : Write %x>\n", io.extaddr, io.extdata)
+    printf(p"<Info : Address 0x${Hexadecimal(io.extaddr)} : Write 0x${Hexadecimal(io.extdata)}>\n")
   } .otherwise {
     when (io.wen) {
       memory(io.wraddr) := io.wrdata
