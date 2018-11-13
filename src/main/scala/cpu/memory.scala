@@ -12,10 +12,7 @@ class MemoryIo extends Bundle {
   val rddata = Output(UInt(32.W))
   val rden   = Output(Bool())
 
-  // External Memory Input
-  val extwen  = Input(Bool())
-  val extaddr = Input(UInt(8.W))
-  val extdata = Input(UInt(32.W))
+  val ext_bus = new Bus()
 }
 
 class Memory extends Module {
@@ -24,9 +21,9 @@ class Memory extends Module {
   val memory = Mem(256, UInt(32.W))
   val r_en   = Reg(Bool())
 
-  when (io.extwen) {
-    memory(io.extaddr) := io.extdata
-    printf(p"<Info : Address 0x${Hexadecimal(io.extaddr)} : Write 0x${Hexadecimal(io.extdata)}>\n")
+  when (io.ext_bus.req) {
+    memory(io.ext_bus.addr) := io.ext_bus.data
+    printf(p"<Info : Address 0x${Hexadecimal(io.ext_bus.addr)} : Write 0x${Hexadecimal(io.ext_bus.data)}>\n")
   } .otherwise {
     when (io.wen) {
       memory(io.wraddr) := io.wrdata

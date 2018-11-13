@@ -5,7 +5,7 @@ import chisel3.Bool
 
 import DecodeConsts._
 
-class InstBus extends Bundle {
+class Bus extends Bundle {
   val req  = Input(Bool())
   val addr = Input(UInt(8.W))
   val data = Input(UInt(32.W))
@@ -29,8 +29,8 @@ class RegIo extends Bundle {
 
 class CpuTopIo extends Bundle {
   val run       = Input(Bool())
-  val instbus   = new InstBus()
-  val debugpath = Flipped(new InstBus())
+  val ext_bus   = new Bus()
+  val debugpath = Flipped(new Bus())
 }
 
 
@@ -57,9 +57,7 @@ class CpuTop extends Module {
   cpu.io.i_run       := io.run
 
   // Memory Load for External Debug
-  memory.io.extwen  := io.instbus.req
-  memory.io.extaddr := io.instbus.addr
-  memory.io.extdata := io.instbus.data
+  memory.io.ext_bus  <> io.ext_bus
 
   io.debugpath.req  := w_instReq
   io.debugpath.addr := w_instAddr

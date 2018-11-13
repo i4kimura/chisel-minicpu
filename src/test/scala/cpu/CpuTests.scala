@@ -4,38 +4,8 @@ import chisel3.iotesters
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.io.Source
 
-class CpuTopTests(c: CpuTop) extends PeekPokeTester(c) {
-
-  var mem_init = Array (
-    0x041b0010,
-    0x141301f4,
-    0x2573f140,
-    0x05970000,
-    0x85930745,
-    0x84020000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x2573f140,
-    0x05970000,
-    0x859303c5,
-    0x00731050,
-    0xbff50000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000,
-    0x00000000
-  )
+class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
+{
 
   val fp    = Source.fromFile("test.hex")
   val lines = fp.getLines
@@ -55,16 +25,16 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c) {
   poke (cpu_tb.io.run, 0)
 
   memory.foreach{ mem =>
-    poke (cpu_tb.io.instbus.req, 1)
-    poke (cpu_tb.io.instbus.addr, mem(0))
-    poke (cpu_tb.io.instbus.data, mem(1))
+    poke (cpu_tb.io.ext_bus.req, 1)
+    poke (cpu_tb.io.ext_bus.addr, mem(0))
+    poke (cpu_tb.io.ext_bus.data, mem(1))
 
     step(1)
   }
 
-  poke (cpu_tb.io.instbus.req , 0)
-  poke (cpu_tb.io.instbus.addr, 0)
-  poke (cpu_tb.io.instbus.data, 0)
+  poke (cpu_tb.io.ext_bus.req , 0)
+  poke (cpu_tb.io.ext_bus.addr, 0)
+  poke (cpu_tb.io.ext_bus.data, 0)
 
   step(1)
   step(1)
