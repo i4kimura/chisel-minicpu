@@ -5,9 +5,9 @@ import chisel3.Bool
 
 import DecodeConsts._
 
-class Bus extends Bundle {
+class Bus (val bus_width: Int) extends Bundle {
   val req  = Input(Bool())
-  val addr = Input(UInt(8.W))
+  val addr = Input(UInt(bus_width.W))
   val data = Input(UInt(32.W))
 }
 
@@ -27,18 +27,18 @@ class RegIo extends Bundle {
 }
 
 
-class CpuTopIo extends Bundle {
+class CpuTopIo (bus_width: Int) extends Bundle {
   val run       = Input(Bool())
-  val ext_bus   = new Bus()
-  val debugpath = Flipped(new Bus())
+  val ext_bus   = new Bus(bus_width)
+  val debugpath = Flipped(new Bus(bus_width))
 }
 
 
-class CpuTop extends Module {
-  val io = IO (new CpuTopIo())
+class CpuTop (bus_width: Int) extends Module {
+  val io = IO (new CpuTopIo(bus_width))
 
-  val memory = Module(new Memory)
-  val cpu    = Module(new Cpu)
+  val memory = Module(new Memory(bus_width))
+  val cpu    = Module(new Cpu(bus_width))
 
   val w_instReq  = cpu.io.o_instReq
   val w_instAddr = cpu.io.o_instAddr
@@ -66,18 +66,18 @@ class CpuTop extends Module {
 }
 
 
-class Cpu extends Module {
+class Cpu (bus_width: Int) extends Module {
   val io = IO (new Bundle {
     val i_run      = Input(Bool())
 
-    val o_instAddr = Output(UInt(8.W))
+    val o_instAddr = Output(UInt(bus_width.W))
     val o_instReq  = Output(Bool())
 
     val i_instAck  = Input(Bool())
     val i_instData = Input(UInt(32.W))
   })
 
-  val r_inst_addr = RegInit(0.U(8.W))
+  val r_inst_addr = RegInit(0.U(bus_width.W))
   val r_inst_en   = RegInit(false.B)
 
   r_inst_en := io.i_run
@@ -109,6 +109,9 @@ class Cpu extends Module {
   w_ra_func3  := r_inst_r1(14,12)
   w_ra_rd     := r_inst_r1(11, 7)
   w_ra_opcode := r_inst_r1( 6, 2)
+
+  val hexbus_width = 8
+  printf(p"DASM(0x${Hexadecimal(r_inst_r1)})\n")
 
   val cpath = Module(new CtlPath())
 
@@ -164,6 +167,7 @@ class Regs extends Module {
   }
 
   when (io.wren && (io.wraddr =/= 0.U(64.W))) {
+    printf(p"x${Decimal(io.wraddr)}<=${Hexadecimal(io.wrdata)}\n")
     r_regs(io.wraddr) := io.wrdata
   }
 }
@@ -212,5 +216,5 @@ class Alu extends Module {
 
 
 object CpuTop extends App {
-  chisel3.Driver.execute(args, () => new CpuTop)
+  chisel3.Driver.execute(args, () => new CpuTop(bus_width = 16))
 }
