@@ -7,7 +7,7 @@ import scala.io.Source
 class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
 {
 
-  val fp    = Source.fromFile("test.hex")
+  val fp = Source.fromFile("test.hex")
   val lines = fp.getLines
 
   val memory = lines.map{ line =>
@@ -40,21 +40,8 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
   step(1)
 
   poke (cpu_tb.io.run, 1)
-  step(1)
-  expect(cpu_tb.io.debugpath.req,  1)
-  expect(cpu_tb.io.debugpath.addr, 0)
 
   step(100)
-  // for (step_idx <- 0 to 10 by 1) {
-  //   val hexbus_width = 8
-  //
-  //   expect(cpu_tb.io.debugpath.req,  1)
-  //   expect(cpu_tb.io.debugpath.addr, step_idx * 4)
-  //
-  //   printf(s"<Info: Step %02d Instruction %0${hexbus_width}x is fetched>\n", step_idx, peek(cpu_tb.io.debugpath.data))
-  //
-  //   step(1)
-  // }
 }
 
 class Tester extends ChiselFlatSpec {

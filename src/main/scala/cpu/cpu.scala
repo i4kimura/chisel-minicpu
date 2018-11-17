@@ -1,6 +1,7 @@
 package cpu
 
 import chisel3._
+import chisel3.util._
 import chisel3.Bool
 
 import DecodeConsts._
@@ -10,6 +11,50 @@ class Bus (val bus_width: Int) extends Bundle {
   val addr = Input(UInt(bus_width.W))
   val data = Input(UInt(32.W))
 }
+
+
+object PrintHex
+{
+  def apply(x: UInt, length: Int): String =
+  {
+    require(length > 0)
+    var result = ""
+    for (i <- length-1 to 0 by -1) {
+      printf("%x", (x >> (4.U * i.asUInt)) & 0xf.U)
+    }
+    result
+  }
+
+  def apply(x: SInt, length: Int): String =
+  {
+    require(length > 0)
+    var result = ""
+    for (i <- length-1 to 0 by -1) {
+      printf("%x", (x.asUInt >> (4.U * i.asUInt)) & 0xf.U)
+    }
+    result
+  }
+}
+
+
+// object PrintDec
+// {
+//   def apply(x: UInt, length: Int) =
+//   {
+//     require(length > 0)
+//     for (i <- length-1 to 0 by -1) {
+//       printf("%d", ((x / BigDecimal(math.pow(10, i)).toBigInt)) & 0xf.U)
+//     }
+//   }
+//
+//   // def apply(x: SInt, length: Int) =
+//   // {
+//   //   require(length > 0)
+//   //   for (i <- length-1 to 0 by -1) {
+//   //     printf("%x", (x.asUInt / (math.pow(10, i).toBigInt)) & 0xf.U)
+//   //   }
+//   // }
+// }
 
 
 class RegIo extends Bundle {
@@ -30,7 +75,28 @@ class RegIo extends Bundle {
 class CpuTopIo (bus_width: Int) extends Bundle {
   val run       = Input(Bool())
   val ext_bus   = new Bus(bus_width)
-  val debugpath = Flipped(new Bus(bus_width))
+}
+
+
+class CpuDebugMonitor extends Bundle {
+  val inst_valid = Output(Bool())
+  val inst_addr  = Output(UInt(32.W))
+  val inst_hex   = Output(UInt(32.W))
+  val reg_wren   = Output(Bool())
+  val reg_wraddr = Output(UInt(5.W))
+  val reg_wrdata = Output(SInt(64.W))
+}
+
+class CpuIo (bus_width: Int) extends Bundle {
+  val run      = Input(Bool())
+
+  val inst_addr = Output(UInt(bus_width.W))
+  val inst_req  = Output(Bool())
+
+  val inst_ack  = Input(Bool())
+  val inst_data = Input(UInt(32.W))
+
+  val dbg_monitor = new CpuDebugMonitor()
 }
 
 
@@ -40,59 +106,74 @@ class CpuTop (bus_width: Int) extends Module {
   val memory = Module(new Memory(bus_width))
   val cpu    = Module(new Cpu(bus_width))
 
-  val w_instReq  = cpu.io.o_instReq
-  val w_instAddr = cpu.io.o_instAddr
+  val w_instReq  = cpu.io.inst_req
+  val w_instAddr = cpu.io.inst_addr
 
   // Connect CPU and Memory
   memory.io.ren    := w_instReq
-  memory.io.rdaddr := w_instAddr(7, 2)
+  memory.io.rdaddr := w_instAddr(bus_width-1, 2)
 
   memory.io.wen    := false.B
   memory.io.wraddr := 0.U
   memory.io.wrdata := 0.U
 
-  cpu.io.i_instAck   := memory.io.rden
-  cpu.io.i_instData  := memory.io.rddata
+  cpu.io.inst_ack   := memory.io.rden
+  cpu.io.inst_data  := memory.io.rddata
 
-  cpu.io.i_run       := io.run
+  cpu.io.run       := io.run
 
   // Memory Load for External Debug
   memory.io.ext_bus  <> io.ext_bus
 
-  io.debugpath.req  := w_instReq
-  io.debugpath.addr := w_instAddr
-  io.debugpath.data := memory.io.rddata
+  //
+  // Monitor for Debug
+  //
+  val cycle = RegInit(0.U(32.W))
+  cycle := cycle + 1.U
 
+  when (cpu.io.dbg_monitor.inst_valid) {
+    val hexbus_width = 8
+    // printf(p"${Decimal(cycle)} : ")
+    printf("%d : ", cycle)
+    when (cpu.io.dbg_monitor.reg_wren) {
+      printf("x%d<=", cpu.io.dbg_monitor.reg_wraddr)
+      PrintHex(cpu.io.dbg_monitor.reg_wrdata, 16)
+    } .otherwise {
+      printf("                     ")
+    }
+    printf(": 0x")
+    PrintHex(cpu.io.dbg_monitor.inst_addr, 8)
+    printf(": DASM(0x%x) ", cpu.io.dbg_monitor.inst_hex)
+    printf("\n")
+  }
 }
 
 
 class Cpu (bus_width: Int) extends Module {
-  val io = IO (new Bundle {
-    val i_run      = Input(Bool())
-
-    val o_instAddr = Output(UInt(bus_width.W))
-    val o_instReq  = Output(Bool())
-
-    val i_instAck  = Input(Bool())
-    val i_instData = Input(UInt(32.W))
-  })
+  val io = IO (new CpuIo(bus_width))
 
   val r_inst_addr = RegInit(0.U(bus_width.W))
   val r_inst_en   = RegInit(false.B)
 
-  r_inst_en := io.i_run
+  r_inst_en := io.run
 
-  when(r_inst_en & io.i_instAck) {
+  when(r_inst_en & io.inst_ack) {
     r_inst_addr := r_inst_addr + 4.U
   }
 
-  io.o_instAddr := r_inst_addr
-  io.o_instReq  := r_inst_en
+  io.inst_addr := r_inst_addr
+  io.inst_req  := r_inst_en
 
   // Get Instruction
-  val r_inst_r1 = Reg(UInt(32.W))
-  when  (r_inst_en & io.i_instAck) {
-    r_inst_r1 := io.i_instData;
+  val r_inst_r1       = Reg(UInt(32.W))
+  val r_inst_addr_r1  = Reg(UInt(bus_width.W))
+  val r_inst_valid_r1 = Reg(Bool())
+  when  (r_inst_en & io.inst_ack) {
+    r_inst_r1       := io.inst_data
+    r_inst_addr_r1  := r_inst_addr
+    r_inst_valid_r1 := true.B
+  } .otherwise {
+    r_inst_valid_r1 := false.B
   }
 
   // Opcode extraction and Register Read
@@ -110,12 +191,9 @@ class Cpu (bus_width: Int) extends Module {
   w_ra_rd     := r_inst_r1(11, 7)
   w_ra_opcode := r_inst_r1( 6, 2)
 
-  val hexbus_width = 8
-  printf(p"DASM(0x${Hexadecimal(r_inst_r1)})\n")
-
   val cpath = Module(new CtlPath())
 
-  cpath.io.inst := io.i_instData
+  cpath.io.inst := io.inst_data
 
   val u_regs = Module(new Regs)
   val w_ex_op1 = Wire(SInt(64.W))
@@ -134,16 +212,27 @@ class Cpu (bus_width: Int) extends Module {
 
   val u_alu = Module (new Alu)
   u_alu.io.i_func := cpath.io.ctl.alu_fun
-  u_alu.io.i_op0  := Mux(cpath.io.ctl.op1_sel === OP1_RS1,  w_ex_op1,
-                     Mux(cpath.io.ctl.op1_sel === OP1_IMU, 0.S,
-                     Mux(cpath.io.ctl.op1_sel === OP1_IMZ, 0.S, 0.S)))
-  u_alu.io.i_op1  := Mux(cpath.io.ctl.op2_sel === OP2_RS2,  w_ex_op2,
-                     Mux(cpath.io.ctl.op2_sel === OP2_IMI, 0.S,
-                     Mux(cpath.io.ctl.op2_sel === OP2_IMS, 0.S, 0.S)))
+  u_alu.io.i_op0  := Mux(cpath.io.ctl.op1_sel === OP1_RS1, w_ex_op1,
+                     Mux(cpath.io.ctl.op1_sel === OP1_IMU, Cat(r_inst_r1(31, 20), Fill(12,0.U)).asSInt,
+                     Mux(cpath.io.ctl.op1_sel === OP1_IMZ, Cat(Fill(27,0.U), r_inst_r1(19,15)).asSInt,
+                     0.S)))
+  val imm_i = r_inst_r1(31, 20).asSInt
+  val imm_s = Cat(r_inst_r1(31, 25), r_inst_r1(11,7)).asSInt
+  u_alu.io.i_op1  := Mux(cpath.io.ctl.op2_sel === OP2_RS2, w_ex_op2,
+                     Mux(cpath.io.ctl.op2_sel === OP2_IMI, Cat(Fill(20,imm_i(11)), imm_i).asSInt,
+                     Mux(cpath.io.ctl.op2_sel === OP2_IMS, Cat(Fill(20,imm_s(11)), imm_s).asSInt,
+                     0.S)))
 
   u_regs.io.wren   := (cpath.io.ctl.alu_fun =/= ALU_X)
   u_regs.io.wraddr := w_ra_rd
   u_regs.io.wrdata := u_alu.io.o_res
+
+  io.dbg_monitor.inst_valid := r_inst_valid_r1
+  io.dbg_monitor.inst_addr  := r_inst_addr_r1
+  io.dbg_monitor.inst_hex   := r_inst_r1
+  io.dbg_monitor.reg_wren   := u_regs.io.wren
+  io.dbg_monitor.reg_wraddr := u_regs.io.wraddr
+  io.dbg_monitor.reg_wrdata := u_regs.io.wrdata
 
 }
 
@@ -167,7 +256,6 @@ class Regs extends Module {
   }
 
   when (io.wren && (io.wraddr =/= 0.U(64.W))) {
-    printf(p"x${Decimal(io.wraddr)}<=${Hexadecimal(io.wrdata)}\n")
     r_regs(io.wraddr) := io.wrdata
   }
 }
