@@ -10,3 +10,4 @@ $(TARGET).bin : $(TARGET).elf
 
 $(TARGET).elf : $(TARGET).s
 	riscv64-unknown-elf-as $^ -o $@
+	riscv64-unknown-elf-objdump -D $@ > $(TARGET).dmp

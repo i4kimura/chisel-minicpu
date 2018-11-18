@@ -15,24 +15,22 @@ class Bus (val bus_width: Int) extends Bundle {
 
 object PrintHex
 {
-  def apply(x: UInt, length: Int): String =
+  def apply(x: UInt, length: Int) =
   {
     require(length > 0)
-    var result = ""
     for (i <- length-1 to 0 by -1) {
-      printf("%x", (x >> (4.U * i.asUInt)) & 0xf.U)
+      printf("%x", ((x >> (i * 4)) & 0x0f.U))
     }
-    result
+    0
   }
 
-  def apply(x: SInt, length: Int): String =
+  def apply(x: SInt, length: Int) =
   {
     require(length > 0)
-    var result = ""
     for (i <- length-1 to 0 by -1) {
-      printf("%x", (x.asUInt >> (4.U * i.asUInt)) & 0xf.U)
+      printf("%x", ((x >> (i * 4)) & 0x0f.S))
     }
-    result
+    0
   }
 }
 
@@ -133,18 +131,18 @@ class CpuTop (bus_width: Int) extends Module {
 
   when (cpu.io.dbg_monitor.inst_valid) {
     val hexbus_width = 8
-    // printf(p"${Decimal(cycle)} : ")
     printf("%d : ", cycle)
     when (cpu.io.dbg_monitor.reg_wren) {
-      printf("x%d<=", cpu.io.dbg_monitor.reg_wraddr)
+      printf("x%d<=0x", cpu.io.dbg_monitor.reg_wraddr)
       PrintHex(cpu.io.dbg_monitor.reg_wrdata, 16)
     } .otherwise {
       printf("                     ")
     }
     printf(": 0x")
     PrintHex(cpu.io.dbg_monitor.inst_addr, 8)
-    printf(": DASM(0x%x) ", cpu.io.dbg_monitor.inst_hex)
-    printf("\n")
+    printf(": DASM(")
+    PrintHex(cpu.io.dbg_monitor.inst_hex, 8)
+    printf(")\n")
   }
 }
 
@@ -193,7 +191,7 @@ class Cpu (bus_width: Int) extends Module {
 
   val cpath = Module(new CtlPath())
 
-  cpath.io.inst := io.inst_data
+  cpath.io.inst := r_inst_r1
 
   val u_regs = Module(new Regs)
   val w_ex_op1 = Wire(SInt(64.W))
