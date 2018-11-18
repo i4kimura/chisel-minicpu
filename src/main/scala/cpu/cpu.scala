@@ -275,7 +275,9 @@ class Alu extends Module {
   //   PrintHex(io.i_op0, 16)
   //   printf("] OP2[0x")
   //   PrintHex(io.i_op1, 16)
-  //   printf("] %d\n", io.i_func)
+  //   printf("] %d => ANS[0x", io.i_func)
+  //   PrintHex(io.o_res, 16)
+  //   printf("]\n")
   // }
 
   val w_res = Wire(SInt(64.W))
@@ -296,9 +298,9 @@ class Alu extends Module {
   } .elsewhen (io.i_func === ALU_XOR) {
     w_res := io.i_op0 ^ io.i_op1
   } .elsewhen (io.i_func === ALU_SLT) {
-    w_res := (io.i_op0 > io.i_op1).asSInt
+    w_res := Mux(io.i_op0 < io.i_op1, 1.S, 0.S)
   } .elsewhen (io.i_func === ALU_SLTU) {
-    w_res := (io.i_op0.asUInt > io.i_op1.asUInt).asSInt
+    w_res := Mux(io.i_op0.asUInt < io.i_op1.asUInt, 1.S, 0.S)
   } .elsewhen (io.i_func === ALU_COPY1) {
     w_res := io.i_op0
   } .otherwise {
