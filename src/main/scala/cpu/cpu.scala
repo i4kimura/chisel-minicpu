@@ -138,9 +138,11 @@ class CpuTop (bus_width: Int) extends Module {
     } .otherwise {
       printf("                     ")
     }
-    printf(": 0x")
+    printf(" : 0x")
     PrintHex(cpu.io.dbg_monitor.inst_addr, 8)
-    printf(": DASM(")
+    printf(" : INST(0x")
+    PrintHex(cpu.io.dbg_monitor.inst_hex, 8)
+    printf(") : DASM(")
     PrintHex(cpu.io.dbg_monitor.inst_hex, 8)
     printf(")\n")
   }
@@ -197,11 +199,11 @@ class Cpu (bus_width: Int) extends Module {
   val w_ex_op1 = Wire(SInt(64.W))
   val w_ex_op2 = Wire(SInt(64.W))
 
-  u_regs.io.rden0   := (w_ra_opcode === "hc".asUInt(5.W)) // OP
+  u_regs.io.rden0   := (cpath.io.ctl.op1_sel === OP1_RS1)
   u_regs.io.rdaddr0 := w_ra_rs1
   w_ex_op1          := u_regs.io.rddata0
 
-  u_regs.io.rden1   := (w_ra_opcode === "hc".asUInt(5.W)) // OP
+  u_regs.io.rden1   := (cpath.io.ctl.op2_sel === OP2_RS2)
   u_regs.io.rdaddr1 := w_ra_rs2
   w_ex_op2          := u_regs.io.rddata1
 
@@ -211,7 +213,7 @@ class Cpu (bus_width: Int) extends Module {
   val u_alu = Module (new Alu)
   u_alu.io.i_func := cpath.io.ctl.alu_fun
   u_alu.io.i_op0  := Mux(cpath.io.ctl.op1_sel === OP1_RS1, w_ex_op1,
-                     Mux(cpath.io.ctl.op1_sel === OP1_IMU, Cat(r_inst_r1(31, 20), Fill(12,0.U)).asSInt,
+                     Mux(cpath.io.ctl.op1_sel === OP1_IMU, Cat(r_inst_r1(31, 12), Fill(12,0.U)).asSInt,
                      Mux(cpath.io.ctl.op1_sel === OP1_IMZ, Cat(Fill(27,0.U), r_inst_r1(19,15)).asSInt,
                      0.S)))
   val imm_i = r_inst_r1(31, 20).asSInt
@@ -267,6 +269,14 @@ class Alu extends Module {
 
     val o_res  = Output (SInt(64.W))
   })
+
+  // when (io.i_func =/= ALU_X) {
+  //   printf("ALU : OP1[0x")
+  //   PrintHex(io.i_op0, 16)
+  //   printf("] OP2[0x")
+  //   PrintHex(io.i_op1, 16)
+  //   printf("] %d\n", io.i_func)
+  // }
 
   val w_res = Wire(SInt(64.W))
   when (io.i_func === ALU_ADD) {

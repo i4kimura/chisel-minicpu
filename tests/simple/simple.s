@@ -1,24 +1,4 @@
 _start:
-    li  x1,   0
-    li  x2,   1
-    li  x3,   2
-    li  x4,   3
-    li  x5,   4
-    li  x6,   5
-    li  x7,   6
-    li  x8,   7
-    li  x9,   8
-    li  x10,  9
-    li  x11, 10
-    li  x12, 11
-    li  x13, 12
-    li  x14, 13
-    li  x15, 14
-    li  x16, 15
-    li  x17, 16
-    li  x18, 17
-    li  x19, 18
-    li  x20, 19
     li  x21, 0xb3fefd77eb062f44
     li  x22, 0x9b0c605e63aadd2b
     li  x23, 0x8cd5b53f23cedcc1
@@ -29,3 +9,13 @@ _start:
     li  x28, 0xcbc0a96ce51fc370
     li  x29, 0x9261c0826773f9dc
     li  x30, 0xdf4ab835b72f5a1c
+
+    auipc   x1, 0xadf
+	auipc   x2, 0xa5f
+	auipc   x3, 0x2d8
+	auipc   x4, 0xab8
+	auipc   x5, 0xdf2
+	auipc   x6, 0x78e
+	auipc   x7, 0x475
+	auipc   x8, 0x259
+	auipc   x9, 0x275

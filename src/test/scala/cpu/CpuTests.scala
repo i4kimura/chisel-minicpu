@@ -41,7 +41,7 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
 
   poke (cpu_tb.io.run, 1)
 
-  step(50)
+  step(100)
 }
 
 class Tester extends ChiselFlatSpec {
