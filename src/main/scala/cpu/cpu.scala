@@ -211,21 +211,21 @@ class Cpu (bus_width: Int) extends Module {
   r_ex_func3 := w_ra_func3
 
   val u_alu = Module (new Alu)
-  u_alu.io.i_func := cpath.io.ctl.alu_fun
-  u_alu.io.i_op0  := Mux(cpath.io.ctl.op1_sel === OP1_RS1, w_ex_op1,
+  u_alu.io.func := cpath.io.ctl.alu_fun
+  u_alu.io.op0  := Mux(cpath.io.ctl.op1_sel === OP1_RS1, w_ex_op1,
                      Mux(cpath.io.ctl.op1_sel === OP1_IMU, Cat(r_inst_r1(31, 12), Fill(12,0.U)).asSInt,
                      Mux(cpath.io.ctl.op1_sel === OP1_IMZ, Cat(Fill(27,0.U), r_inst_r1(19,15)).asSInt,
                      0.S)))
   val imm_i = r_inst_r1(31, 20).asSInt
   val imm_s = Cat(r_inst_r1(31, 25), r_inst_r1(11,7)).asSInt
-  u_alu.io.i_op1  := Mux(cpath.io.ctl.op2_sel === OP2_RS2, w_ex_op2,
+  u_alu.io.op1  := Mux(cpath.io.ctl.op2_sel === OP2_RS2, w_ex_op2,
                      Mux(cpath.io.ctl.op2_sel === OP2_IMI, Cat(Fill(20,imm_i(11)), imm_i).asSInt,
                      Mux(cpath.io.ctl.op2_sel === OP2_IMS, Cat(Fill(20,imm_s(11)), imm_s).asSInt,
                      0.S)))
 
   u_regs.io.wren   := (cpath.io.ctl.alu_fun =/= ALU_X)
   u_regs.io.wraddr := w_ra_rd
-  u_regs.io.wrdata := u_alu.io.o_res
+  u_regs.io.wrdata := u_alu.io.res
 
   io.dbg_monitor.inst_valid := r_inst_valid_r1
   io.dbg_monitor.inst_addr  := r_inst_addr_r1
@@ -263,53 +263,53 @@ class Regs extends Module {
 
 class Alu extends Module {
   val io = IO (new Bundle {
-    val i_func = Input (UInt(4.W))
-    val i_op0  = Input (SInt(64.W))
-    val i_op1  = Input (SInt(64.W))
+    val func = Input (UInt(4.W))
+    val op0  = Input (SInt(64.W))
+    val op1  = Input (SInt(64.W))
 
-    val o_res  = Output (SInt(64.W))
+    val res  = Output (SInt(64.W))
   })
 
-  // when (io.i_func =/= ALU_X) {
+  // when (io.func =/= ALU_X) {
   //   printf("ALU : OP1[0x")
-  //   PrintHex(io.i_op0, 16)
+  //   PrintHex(io.op0, 16)
   //   printf("] OP2[0x")
-  //   PrintHex(io.i_op1, 16)
-  //   printf("] %d => ANS[0x", io.i_func)
-  //   PrintHex(io.o_res, 16)
+  //   PrintHex(io.op1, 16)
+  //   printf("] %d => ANS[0x", io.func)
+  //   PrintHex(io.res, 16)
   //   printf("]\n")
   // }
 
   val w_res = Wire(SInt(64.W))
-  when (io.i_func === ALU_ADD) {
-    w_res := io.i_op0 + io.i_op1
-  } .elsewhen (io.i_func === ALU_SUB) {
-    w_res := io.i_op0 - io.i_op1
-  } .elsewhen (io.i_func === ALU_SLL) {
-    w_res := (io.i_op0.asUInt << io.i_op1(5,0).asUInt).asSInt
-  } .elsewhen (io.i_func === ALU_SRL) {
-    w_res := (io.i_op0.asUInt >> io.i_op1(5,0).asUInt).asSInt
-  } .elsewhen (io.i_func === ALU_SRA) {
-    w_res := (io.i_op0 >> io.i_op1(5,0).asUInt).asSInt
-  } .elsewhen (io.i_func === ALU_AND) {
-    w_res := io.i_op0 & io.i_op1
-  } .elsewhen (io.i_func === ALU_OR) {
-    w_res := io.i_op0 | io.i_op1
-  } .elsewhen (io.i_func === ALU_XOR) {
-    w_res := io.i_op0 ^ io.i_op1
-  } .elsewhen (io.i_func === ALU_SLT) {
-    w_res := Mux(io.i_op0 < io.i_op1, 1.S, 0.S)
-  } .elsewhen (io.i_func === ALU_SLTU) {
-    w_res := Mux(io.i_op0.asUInt < io.i_op1.asUInt, 1.S, 0.S)
-  } .elsewhen (io.i_func === ALU_COPY1) {
-    w_res := io.i_op0
+  when (io.func === ALU_ADD) {
+    w_res := io.op0 + io.op1
+  } .elsewhen (io.func === ALU_SUB) {
+    w_res := io.op0 - io.op1
+  } .elsewhen (io.func === ALU_SLL) {
+    w_res := (io.op0.asUInt << io.op1(5,0).asUInt).asSInt
+  } .elsewhen (io.func === ALU_SRL) {
+    w_res := (io.op0.asUInt >> io.op1(5,0).asUInt).asSInt
+  } .elsewhen (io.func === ALU_SRA) {
+    w_res := (io.op0 >> io.op1(5,0).asUInt).asSInt
+  } .elsewhen (io.func === ALU_AND) {
+    w_res := io.op0 & io.op1
+  } .elsewhen (io.func === ALU_OR) {
+    w_res := io.op0 | io.op1
+  } .elsewhen (io.func === ALU_XOR) {
+    w_res := io.op0 ^ io.op1
+  } .elsewhen (io.func === ALU_SLT) {
+    w_res := Mux(io.op0 < io.op1, 1.S, 0.S)
+  } .elsewhen (io.func === ALU_SLTU) {
+    w_res := Mux(io.op0.asUInt < io.op1.asUInt, 1.S, 0.S)
+  } .elsewhen (io.func === ALU_COPY1) {
+    w_res := io.op0
   } .otherwise {
-    w_res := io.i_op0
+    w_res := io.op0
   }
 
   val r_res = Reg(SInt(64.W))
   r_res := w_res
-  io.o_res := w_res
+  io.res := w_res
 }
 
 
