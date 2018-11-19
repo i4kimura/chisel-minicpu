@@ -58,7 +58,11 @@ object DecodeConsts
   val ALU_XOR  = 8.asUInt(4.W)
   val ALU_SLT  = 9.asUInt(4.W)
   val ALU_SLTU = 10.asUInt(4.W)
-  val ALU_COPY1= 11.asUInt(4.W)
+  val ALU_SNE  = 11.asUInt(4.W)
+  val ALU_SEQ  = 12.asUInt(4.W)
+  val ALU_SGE  = 13.asUInt(4.W)
+  val ALU_SGEU = 14.asUInt(4.W)
+  val ALU_COPY1= 15.asUInt(4.W)
   val ALU_X    = 0.asUInt(4.W)
 
   // Writeback Select Signal
