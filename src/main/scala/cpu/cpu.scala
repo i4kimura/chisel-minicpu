@@ -279,31 +279,22 @@ class Alu extends Module {
   // }
 
   val w_res = Wire(SInt(64.W))
-  when (io.i_func === ALU_ADD) {
-    w_res := io.i_op0 + io.i_op1
-  } .elsewhen (io.i_func === ALU_SUB) {
-    w_res := io.i_op0 - io.i_op1
-  } .elsewhen (io.i_func === ALU_SLL) {
-    w_res := (io.i_op0.asUInt << io.i_op1(5,0).asUInt).asSInt
-  } .elsewhen (io.i_func === ALU_SRL) {
-    w_res := (io.i_op0.asUInt >> io.i_op1(5,0).asUInt).asSInt
-  } .elsewhen (io.i_func === ALU_SRA) {
-    w_res := (io.i_op0 >> io.i_op1(5,0).asUInt).asSInt
-  } .elsewhen (io.i_func === ALU_AND) {
-    w_res := io.i_op0 & io.i_op1
-  } .elsewhen (io.i_func === ALU_OR) {
-    w_res := io.i_op0 | io.i_op1
-  } .elsewhen (io.i_func === ALU_XOR) {
-    w_res := io.i_op0 ^ io.i_op1
-  } .elsewhen (io.i_func === ALU_SLT) {
-    w_res := (io.i_op0 > io.i_op1).asSInt
-  } .elsewhen (io.i_func === ALU_SLTU) {
-    w_res := (io.i_op0.asUInt > io.i_op1.asUInt).asSInt
-  } .elsewhen (io.i_func === ALU_COPY1) {
-    w_res := io.i_op0
-  } .otherwise {
-    w_res := io.i_op0
-  }
+  when      (io.i_func === ALU_ADD  ) { w_res := io.i_op0 + io.i_op1                              }
+  .elsewhen (io.i_func === ALU_SUB  ) { w_res := io.i_op0 - io.i_op1                              }
+  .elsewhen (io.i_func === ALU_SLL  ) { w_res := (io.i_op0.asUInt << io.i_op1(5,0).asUInt).asSInt }
+  .elsewhen (io.i_func === ALU_SRL  ) { w_res := (io.i_op0.asUInt >> io.i_op1(5,0).asUInt).asSInt }
+  .elsewhen (io.i_func === ALU_SRA  ) { w_res := (io.i_op0 >> io.i_op1(5,0).asUInt).asSInt        }
+  .elsewhen (io.i_func === ALU_AND  ) { w_res := io.i_op0 & io.i_op1                              }
+  .elsewhen (io.i_func === ALU_OR   ) { w_res := io.i_op0 | io.i_op1                              }
+  .elsewhen (io.i_func === ALU_XOR  ) { w_res := io.i_op0 ^ io.i_op1                              }
+  .elsewhen (io.i_func === ALU_SLT  ) { w_res := Mux(io.i_op0 > io.i_op1, 1.S, 0.S)               }
+  .elsewhen (io.i_func === ALU_SLTU ) { w_res := Mux(io.i_op0.asUInt > io.i_op1.asUInt, 1.S, 0.S) }
+  .elsewhen (io.i_func === ALU_SNE  ) { w_res := Mux(io.i_op0 =/= io.i_op1, 1.S, 0.S)             }
+  .elsewhen (io.i_func === ALU_SEQ  ) { w_res := Mux(io.i_op0 === io.i_op1, 1.S, 0.S)             }
+  .elsewhen (io.i_func === ALU_SGE  ) { w_res := Mux(io.i_op0        > io.i_op1, 1.S, 0.S)        }
+  .elsewhen (io.i_func === ALU_SGEU ) { w_res := Mux(io.i_op0.asUInt > io.i_op1.asUInt, 1.S, 0.S) }
+  .elsewhen (io.i_func === ALU_COPY1) { w_res := io.i_op0                                         }
+  .otherwise { w_res := io.i_op0 }
 
   val r_res = Reg(SInt(64.W))
   r_res := w_res
