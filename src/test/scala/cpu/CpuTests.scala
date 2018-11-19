@@ -3,10 +3,32 @@ package cpu
 import chisel3.iotesters
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.io.Source
+import java.io._
+
+// object PrintHex
+// {
+//   def apply(x: UInt, length: Int, fp: PrintWriter) =
+//   {
+//     require(length > 0)
+//     for (i <- length-1 to 0 by -1) {
+//       printf("%x", ((x >> (i * 4)) & 0x0f.U))
+//     }
+//     0
+//   }
+//
+//   def apply(x: SInt, length: Int, fp: PrintWriter) =
+//   {
+//     require(length > 0)
+//     for (i <- length-1 to 0 by -1) {
+//       printf("%x", ((x >> (i * 4)) & 0x0f.S))
+//     }
+//     0
+//   }
+// }
+
 
 class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
 {
-
   val fp = Source.fromFile("test.hex")
   val lines = fp.getLines
 
@@ -19,6 +41,14 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
       Array(Integer.parseInt(line.split(" ")(0).diff("@"), 16), 0)
     }
   }
+
+  //
+  // Monitor for Debug
+  //
+  val writer = new PrintWriter(new File("pipetrace.log"))
+  writer.printf("Hello World\n")
+
+  // writer.close
 
   private val  cpu_tb = c
 
@@ -41,7 +71,29 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
 
   poke (cpu_tb.io.run, 1)
 
-  step(100)
+  val cycle = 0
+
+  for (i <- 0 to 100) {
+    val inst_valid = peek(cpu_tb.io.dbg_monitor.inst_valid)
+    if (inst_valid == 1) {
+      val hexbus_width = 8
+      writer.printf("%d : ".format(cycle))
+      val reg_wren   = peek(cpu_tb.io.dbg_monitor.reg_wren)
+      val reg_wraddr = peek(cpu_tb.io.dbg_monitor.reg_wraddr)
+      val reg_wrdata = peek(cpu_tb.io.dbg_monitor.reg_wrdata)
+      if (reg_wren == 1) {
+        writer.printf("x%d<=0x%016x".format(reg_wraddr, reg_wrdata))
+      } else {
+        writer.printf("                     ")
+      }
+      val inst_addr = peek(cpu_tb.io.dbg_monitor.inst_addr)
+      val inst_hex  = peek(cpu_tb.io.dbg_monitor.inst_hex)
+      writer.printf(" : 0x%08x : INST(0x%08x) : DASM(%08x)\n"format(inst_addr, inst_hex, inst_hex))
+    }
+    step(1)
+  }
+
+  writer.close()
 }
 
 class Tester extends ChiselFlatSpec {

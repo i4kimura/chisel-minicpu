@@ -13,28 +13,6 @@ class Bus (val bus_width: Int) extends Bundle {
 }
 
 
-object PrintHex
-{
-  def apply(x: UInt, length: Int) =
-  {
-    require(length > 0)
-    for (i <- length-1 to 0 by -1) {
-      printf("%x", ((x >> (i * 4)) & 0x0f.U))
-    }
-    0
-  }
-
-  def apply(x: SInt, length: Int) =
-  {
-    require(length > 0)
-    for (i <- length-1 to 0 by -1) {
-      printf("%x", ((x >> (i * 4)) & 0x0f.S))
-    }
-    0
-  }
-}
-
-
 // object PrintDec
 // {
 //   def apply(x: UInt, length: Int) =
@@ -70,12 +48,6 @@ class RegIo extends Bundle {
 }
 
 
-class CpuTopIo (bus_width: Int) extends Bundle {
-  val run       = Input(Bool())
-  val ext_bus   = new Bus(bus_width)
-}
-
-
 class CpuDebugMonitor extends Bundle {
   val inst_valid = Output(Bool())
   val inst_addr  = Output(UInt(32.W))
@@ -84,6 +56,13 @@ class CpuDebugMonitor extends Bundle {
   val reg_wraddr = Output(UInt(5.W))
   val reg_wrdata = Output(SInt(64.W))
 }
+
+class CpuTopIo (bus_width: Int) extends Bundle {
+  val run         = Input(Bool())
+  val ext_bus     = new Bus(bus_width)
+  val dbg_monitor = new CpuDebugMonitor()
+}
+
 
 class CpuIo (bus_width: Int) extends Bundle {
   val run      = Input(Bool())
@@ -123,29 +102,7 @@ class CpuTop (bus_width: Int) extends Module {
   // Memory Load for External Debug
   memory.io.ext_bus  <> io.ext_bus
 
-  //
-  // Monitor for Debug
-  //
-  val cycle = RegInit(0.U(32.W))
-  cycle := cycle + 1.U
-
-  when (cpu.io.dbg_monitor.inst_valid) {
-    val hexbus_width = 8
-    printf("%d : ", cycle)
-    when (cpu.io.dbg_monitor.reg_wren) {
-      printf("x%d<=0x", cpu.io.dbg_monitor.reg_wraddr)
-      PrintHex(cpu.io.dbg_monitor.reg_wrdata, 16)
-    } .otherwise {
-      printf("                     ")
-    }
-    printf(" : 0x")
-    PrintHex(cpu.io.dbg_monitor.inst_addr, 8)
-    printf(" : INST(0x")
-    PrintHex(cpu.io.dbg_monitor.inst_hex, 8)
-    printf(") : DASM(")
-    PrintHex(cpu.io.dbg_monitor.inst_hex, 8)
-    printf(")\n")
-  }
+  io.dbg_monitor <> cpu.io.dbg_monitor
 }
 
 
@@ -272,9 +229,9 @@ class Alu extends Module {
 
   // when (io.i_func =/= ALU_X) {
   //   printf("ALU : OP1[0x")
-  //   PrintHex(io.i_op0, 16)
+  //   PrintHex(io.i_op0, 16, writer)
   //   printf("] OP2[0x")
-  //   PrintHex(io.i_op1, 16)
+  //   PrintHex(io.i_op1, 16, writer)
   //   printf("] %d\n", io.i_func)
   // }
 
