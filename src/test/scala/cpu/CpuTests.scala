@@ -46,9 +46,6 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
   // Monitor for Debug
   //
   val writer = new PrintWriter(new File("pipetrace.log"))
-  writer.printf("Hello World\n")
-
-  // writer.close
 
   private val  cpu_tb = c
 
@@ -73,14 +70,14 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
 
   val cycle = 0
 
-  for (i <- 0 to 100) {
+  for (i <- 0 to 512) {
     val inst_valid = peek(cpu_tb.io.dbg_monitor.inst_valid)
     if (inst_valid == 1) {
       val hexbus_width = 8
       writer.printf("%d : ".format(cycle))
       val reg_wren   = peek(cpu_tb.io.dbg_monitor.reg_wren)
-      val reg_wraddr = peek(cpu_tb.io.dbg_monitor.reg_wraddr)
-      val reg_wrdata = peek(cpu_tb.io.dbg_monitor.reg_wrdata)
+      val reg_wraddr : Long = peek(cpu_tb.io.dbg_monitor.reg_wraddr).toLong
+      val reg_wrdata : Long = peek(cpu_tb.io.dbg_monitor.reg_wrdata).toLong
       if (reg_wren == 1) {
         writer.printf("x%d<=0x%016x".format(reg_wraddr, reg_wrdata))
       } else {

@@ -112,19 +112,35 @@ class Cpu (bus_width: Int) extends Module {
   val r_inst_addr = RegInit(0.U(bus_width.W))
   val r_inst_en   = RegInit(false.B)
 
+  // Get Instruction
+  val r_inst_r1       = Reg(UInt(32.W))
+  val r_inst_addr_r1  = Reg(UInt(bus_width.W))
+  val r_inst_valid_r1 = Reg(Bool())
+
+  val imm_i = r_inst_r1(31, 20).asSInt
+  val imm_b = Cat(r_inst_r1(31), r_inst_r1(7), r_inst_r1(30,25), r_inst_r1(11,8))
+  val imm_b_sext = Cat(Fill(19,imm_b(11)), imm_b, 0.U)
+  val imm_s = Cat(r_inst_r1(31, 25), r_inst_r1(11,7)).asSInt
+  val imm_j = Cat(r_inst_r1(31), r_inst_r1(19,12), r_inst_r1(20), r_inst_r1(30,21))
+
+  val w_ex_op1 = Wire(SInt(64.W))
+  val w_ex_op2 = Wire(SInt(64.W))
+
   r_inst_en := io.run
 
-  when(r_inst_en & io.inst_ack) {
+  when(r_inst_en & cpath.io.ctl.jalr) {
+    r_inst_addr := w_ex_op1
+  } .elsewhen (r_inst_en & cpath.io.ctl.jal) {
+    r_inst_addr := imm_j
+  } .elsewhen (r_inst_en & cpath.io.ctl.br & (u_alu.io.res === 1.S)) {
+    r_inst_addr := r_inst_addr + imm_b_sext
+  } .elsewhen(r_inst_en & io.inst_ack) {
     r_inst_addr := r_inst_addr + 4.U
   }
 
   io.inst_addr := r_inst_addr
   io.inst_req  := r_inst_en
 
-  // Get Instruction
-  val r_inst_r1       = Reg(UInt(32.W))
-  val r_inst_addr_r1  = Reg(UInt(bus_width.W))
-  val r_inst_valid_r1 = Reg(Bool())
   when  (r_inst_en & io.inst_ack) {
     r_inst_r1       := io.inst_data
     r_inst_addr_r1  := r_inst_addr
@@ -153,8 +169,6 @@ class Cpu (bus_width: Int) extends Module {
   cpath.io.inst := r_inst_r1
 
   val u_regs = Module(new Regs)
-  val w_ex_op1 = Wire(SInt(64.W))
-  val w_ex_op2 = Wire(SInt(64.W))
 
   u_regs.io.rden0   := (cpath.io.ctl.op1_sel === OP1_RS1)
   u_regs.io.rdaddr0 := w_ra_rs1
@@ -173,12 +187,11 @@ class Cpu (bus_width: Int) extends Module {
                      Mux(cpath.io.ctl.op1_sel === OP1_IMU, Cat(r_inst_r1(31, 12), Fill(12,0.U)).asSInt,
                      Mux(cpath.io.ctl.op1_sel === OP1_IMZ, Cat(Fill(27,0.U), r_inst_r1(19,15)).asSInt,
                      0.S)))
-  val imm_i = r_inst_r1(31, 20).asSInt
-  val imm_s = Cat(r_inst_r1(31, 25), r_inst_r1(11,7)).asSInt
+
   u_alu.io.op1  := Mux(cpath.io.ctl.op2_sel === OP2_RS2, w_ex_op2,
-                     Mux(cpath.io.ctl.op2_sel === OP2_IMI, Cat(Fill(20,imm_i(11)), imm_i).asSInt,
-                     Mux(cpath.io.ctl.op2_sel === OP2_IMS, Cat(Fill(20,imm_s(11)), imm_s).asSInt,
-                     0.S)))
+                   Mux(cpath.io.ctl.op2_sel === OP2_IMI, Cat(Fill(20,imm_i(11)), imm_i).asSInt,
+                   Mux(cpath.io.ctl.op2_sel === OP2_IMS, Cat(Fill(20,imm_s(11)), imm_s).asSInt,
+                   0.S)))
 
   u_regs.io.wren   := (cpath.io.ctl.alu_fun =/= ALU_X)
   u_regs.io.wraddr := w_ra_rd
@@ -236,22 +249,24 @@ class Alu extends Module {
   // }
 
   val w_res = Wire(SInt(64.W))
-  when      (io.i_func === ALU_ADD  ) { w_res := io.i_op0 + io.i_op1                              }
-  .elsewhen (io.i_func === ALU_SUB  ) { w_res := io.i_op0 - io.i_op1                              }
-  .elsewhen (io.i_func === ALU_SLL  ) { w_res := (io.i_op0.asUInt << io.i_op1(5,0).asUInt).asSInt }
-  .elsewhen (io.i_func === ALU_SRL  ) { w_res := (io.i_op0.asUInt >> io.i_op1(5,0).asUInt).asSInt }
-  .elsewhen (io.i_func === ALU_SRA  ) { w_res := (io.i_op0 >> io.i_op1(5,0).asUInt).asSInt        }
-  .elsewhen (io.i_func === ALU_AND  ) { w_res := io.i_op0 & io.i_op1                              }
-  .elsewhen (io.i_func === ALU_OR   ) { w_res := io.i_op0 | io.i_op1                              }
-  .elsewhen (io.i_func === ALU_XOR  ) { w_res := io.i_op0 ^ io.i_op1                              }
-  .elsewhen (io.i_func === ALU_SLT  ) { w_res := Mux(io.i_op0 > io.i_op1, 1.S, 0.S)               }
-  .elsewhen (io.i_func === ALU_SLTU ) { w_res := Mux(io.i_op0.asUInt > io.i_op1.asUInt, 1.S, 0.S) }
-  .elsewhen (io.i_func === ALU_SNE  ) { w_res := Mux(io.i_op0 =/= io.i_op1, 1.S, 0.S)             }
-  .elsewhen (io.i_func === ALU_SEQ  ) { w_res := Mux(io.i_op0 === io.i_op1, 1.S, 0.S)             }
-  .elsewhen (io.i_func === ALU_SGE  ) { w_res := Mux(io.i_op0        > io.i_op1, 1.S, 0.S)        }
-  .elsewhen (io.i_func === ALU_SGEU ) { w_res := Mux(io.i_op0.asUInt > io.i_op1.asUInt, 1.S, 0.S) }
-  .elsewhen (io.i_func === ALU_COPY1) { w_res := io.i_op0                                         }
-  .otherwise { w_res := io.i_op0 }
+  w_res := 0.S
+  switch (io.func) {
+    is (ALU_ADD  ) { w_res := io.op0 + io.op1                              }
+    is (ALU_SUB  ) { w_res := io.op0 - io.op1                              }
+    is (ALU_SLL  ) { w_res := (io.op0.asUInt << io.op1(5,0).asUInt).asSInt }
+    is (ALU_SRL  ) { w_res := (io.op0.asUInt >> io.op1(5,0).asUInt).asSInt }
+    is (ALU_SRA  ) { w_res := (io.op0 >> io.op1(5,0).asUInt).asSInt        }
+    is (ALU_AND  ) { w_res := io.op0 & io.op1                              }
+    is (ALU_OR   ) { w_res := io.op0 | io.op1                              }
+    is (ALU_XOR  ) { w_res := io.op0 ^ io.op1                              }
+    is (ALU_SLT  ) { w_res := Mux(io.op0 > io.op1, 1.S, 0.S)               }
+    is (ALU_SLTU ) { w_res := Mux(io.op0.asUInt > io.op1.asUInt, 1.S, 0.S) }
+    is (ALU_SNE  ) { w_res := Mux(io.op0 =/= io.op1, 1.S, 0.S)             }
+    is (ALU_SEQ  ) { w_res := Mux(io.op0 === io.op1, 1.S, 0.S)             }
+    is (ALU_SGE  ) { w_res := Mux(io.op0        > io.op1, 1.S, 0.S)        }
+    is (ALU_SGEU ) { w_res := Mux(io.op0.asUInt > io.op1.asUInt, 1.S, 0.S) }
+    is (ALU_COPY1) { w_res := io.op0                                       }
+  }
 
   val r_res = Reg(SInt(64.W))
   r_res := w_res
