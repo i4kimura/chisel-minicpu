@@ -49,8 +49,6 @@ _start:
     srai    x8, x17, 0x7
     srli    x9, x18, 0x2
 
-target:
-
     sll     x1, x10, x20
     add     x2, x11, x21
     sub     x3, x12, x22
@@ -71,5 +69,3 @@ target:
     sllw    x7, x16, x26
     srlw    x8, x17, x27
     sraw    x9, x18, x28
-
-    j       target

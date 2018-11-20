@@ -121,11 +121,12 @@ class Cpu (bus_width: Int) extends Module {
   val r_inst_addr_r1  = Reg(UInt(bus_width.W))
   val r_inst_valid_r1 = Reg(Bool())
 
-  val imm_i = r_inst_r1(31, 20).asSInt
-  val imm_b = Cat(r_inst_r1(31), r_inst_r1(7), r_inst_r1(30,25), r_inst_r1(11,8))
+  val imm_i      = r_inst_r1(31, 20).asSInt
+  val imm_b      = Cat(r_inst_r1(31), r_inst_r1(7), r_inst_r1(30,25), r_inst_r1(11,8))
   val imm_b_sext = Cat(Fill(19,imm_b(11)), imm_b, 0.U)
-  val imm_s = Cat(r_inst_r1(31, 25), r_inst_r1(11,7)).asSInt
-  val imm_j = Cat(r_inst_r1(31), r_inst_r1(19,12), r_inst_r1(20), r_inst_r1(30,21))
+  val imm_s      = Cat(r_inst_r1(31, 25), r_inst_r1(11,7)).asSInt
+  val imm_j      = Cat(r_inst_r1(31), r_inst_r1(19,12), r_inst_r1(20), r_inst_r1(30,21), 0.U(1.W))
+  val imm_j_sext = Cat(Fill(64-21, imm_j(20)), imm_j, 0.U(1.W))
 
   val w_ex_op1 = Wire(SInt(64.W))
   val w_ex_op2 = Wire(SInt(64.W))
@@ -135,9 +136,9 @@ class Cpu (bus_width: Int) extends Module {
   when(r_inst_en & cpath.io.ctl.jalr) {
     r_inst_addr := w_ex_op1.asUInt
   } .elsewhen (r_inst_en & cpath.io.ctl.jal) {
-    r_inst_addr := imm_j
+    r_inst_addr := r_inst_addr_r1 + imm_j
   } .elsewhen (r_inst_en & cpath.io.ctl.br & (u_alu.io.res === 1.S)) {
-    r_inst_addr := r_inst_addr + imm_b_sext
+    r_inst_addr := r_inst_addr_r1 + imm_b_sext
   } .elsewhen(r_inst_en & io.inst_ack) {
     r_inst_addr := r_inst_addr + 4.U
   }
@@ -188,14 +189,15 @@ class Cpu (bus_width: Int) extends Module {
                      Mux(cpath.io.ctl.op1_sel === OP1_IMZ, Cat(Fill(27,0.U), r_inst_r1(19,15)).asSInt,
                      0.S)))
 
-  u_alu.io.op1  := Mux(cpath.io.ctl.op2_sel === OP2_RS2, w_ex_op2,
+  u_alu.io.op1  := Mux(cpath.io.ctl.op2_sel === OP2_PC,  r_inst_addr_r1.asSInt,
+                   Mux(cpath.io.ctl.op2_sel === OP2_RS2, w_ex_op2,
                    Mux(cpath.io.ctl.op2_sel === OP2_IMI, Cat(Fill(20,imm_i(11)), imm_i).asSInt,
                    Mux(cpath.io.ctl.op2_sel === OP2_IMS, Cat(Fill(20,imm_s(11)), imm_s).asSInt,
-                   0.S)))
+                   0.S))))
 
-  u_regs.io.wren   := (cpath.io.ctl.alu_fun =/= ALU_X)
+  u_regs.io.wren   := (cpath.io.ctl.alu_fun =/= ALU_X) | (cpath.io.ctl.jal === Y) | (cpath.io.ctl.jalr === Y)
   u_regs.io.wraddr := w_ra_rd
-  u_regs.io.wrdata := u_alu.io.res
+  u_regs.io.wrdata := Mux((cpath.io.ctl.jal === Y) | (cpath.io.ctl.jalr === Y), r_inst_addr_r1.asSInt + 4.S, u_alu.io.res)
 
   io.dbg_monitor.inst_valid := r_inst_valid_r1
   io.dbg_monitor.inst_addr  := r_inst_addr_r1
