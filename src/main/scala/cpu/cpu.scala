@@ -131,13 +131,18 @@ class Cpu (bus_width: Int) extends Module {
   val w_ex_op1 = Wire(SInt(64.W))
   val w_ex_op2 = Wire(SInt(64.W))
 
+  val w_ex_jalr_en = cpath.io.ctl.jalr
+  val w_ex_jal_en  = cpath.io.ctl.jal
+  val w_ex_br_en   = cpath.io.ctl.br & (u_alu.io.res === 1.S)
+  val w_ex_jump_en = r_inst_en & (w_ex_jalr_en | w_ex_jal_en | w_ex_br_en)
+
   r_inst_en := io.run
 
-  when(r_inst_en & cpath.io.ctl.jalr) {
+  when(r_inst_en & w_ex_jalr_en) {
     r_inst_addr := w_ex_op1.asUInt
-  } .elsewhen (r_inst_en & cpath.io.ctl.jal) {
+  } .elsewhen (r_inst_en & w_ex_jal_en) {
     r_inst_addr := r_inst_addr_r1 + imm_j
-  } .elsewhen (r_inst_en & cpath.io.ctl.br & (u_alu.io.res === 1.S)) {
+  } .elsewhen (r_inst_en & w_ex_br_en) {
     r_inst_addr := r_inst_addr_r1 + imm_b_sext
   } .elsewhen(r_inst_en & io.inst_ack) {
     r_inst_addr := r_inst_addr + 4.U
@@ -149,7 +154,7 @@ class Cpu (bus_width: Int) extends Module {
   when  (r_inst_en & io.inst_ack) {
     r_inst_r1       := io.inst_data
     r_inst_addr_r1  := r_inst_addr
-    r_inst_valid_r1 := true.B
+    r_inst_valid_r1 := Mux(w_ex_jump_en, false.B, true.B)
   } .otherwise {
     r_inst_valid_r1 := false.B
   }
@@ -184,16 +189,20 @@ class Cpu (bus_width: Int) extends Module {
   r_ex_func3 := w_ra_func3
 
   u_alu.io.func := cpath.io.ctl.alu_fun
-  u_alu.io.op0  := Mux(cpath.io.ctl.op1_sel === OP1_RS1, w_ex_op1,
-                     Mux(cpath.io.ctl.op1_sel === OP1_IMU, Cat(r_inst_r1(31, 12), Fill(12,0.U)).asSInt,
-                     Mux(cpath.io.ctl.op1_sel === OP1_IMZ, Cat(Fill(27,0.U), r_inst_r1(19,15)).asSInt,
-                     0.S)))
+  u_alu.io.op0 := 0.S
+  switch(cpath.io.ctl.op1_sel) {
+    is (OP1_RS1) { u_alu.io.op0 := w_ex_op1 }
+    is (OP1_IMU) { u_alu.io.op0 := Cat(r_inst_r1(31, 12), Fill(12,0.U)).asSInt }
+    is (OP1_IMZ) { u_alu.io.op0 := Cat(Fill(27,0.U), r_inst_r1(19,15)).asSInt }
+  }
 
-  u_alu.io.op1  := Mux(cpath.io.ctl.op2_sel === OP2_PC,  r_inst_addr_r1.asSInt,
-                   Mux(cpath.io.ctl.op2_sel === OP2_RS2, w_ex_op2,
-                   Mux(cpath.io.ctl.op2_sel === OP2_IMI, Cat(Fill(20,imm_i(11)), imm_i).asSInt,
-                   Mux(cpath.io.ctl.op2_sel === OP2_IMS, Cat(Fill(20,imm_s(11)), imm_s).asSInt,
-                   0.S))))
+  u_alu.io.op1 := 0.S
+  switch(cpath.io.ctl.op2_sel) {
+    is (OP2_PC ) { u_alu.io.op1 :=  r_inst_addr_r1.asSInt }
+    is (OP2_RS2) { u_alu.io.op1 := w_ex_op2 }
+    is (OP2_IMI) { u_alu.io.op1 := Cat(Fill(20,imm_i(11)), imm_i).asSInt }
+    is (OP2_IMS) { u_alu.io.op1 := Cat(Fill(20,imm_s(11)), imm_s).asSInt }
+  }
 
   u_regs.io.wren   := (cpath.io.ctl.alu_fun =/= ALU_X) | (cpath.io.ctl.jal === Y) | (cpath.io.ctl.jalr === Y)
   u_regs.io.wraddr := w_ra_rd
