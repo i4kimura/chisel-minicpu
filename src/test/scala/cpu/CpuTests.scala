@@ -79,9 +79,9 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
       val reg_wraddr : Long = peek(cpu_tb.io.dbg_monitor.reg_wraddr).toLong
       val reg_wrdata : Long = peek(cpu_tb.io.dbg_monitor.reg_wrdata).toLong
       if (reg_wren == 1) {
-        writer.printf("x%d<=0x%016x".format(reg_wraddr, reg_wrdata))
+        writer.printf("x%02d<=0x%016x".format(reg_wraddr, reg_wrdata))
       } else {
-        writer.printf("                     ")
+        writer.printf("                       ")
       }
       val inst_addr = peek(cpu_tb.io.dbg_monitor.inst_addr)
       val inst_hex  = peek(cpu_tb.io.dbg_monitor.inst_hex)

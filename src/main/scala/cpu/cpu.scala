@@ -109,6 +109,10 @@ class CpuTop (bus_width: Int) extends Module {
 class Cpu (bus_width: Int) extends Module {
   val io = IO (new CpuIo(bus_width))
 
+  val cpath  = Module(new CtlPath())
+  val u_regs = Module(new Regs)
+  val u_alu  = Module (new Alu)
+
   val r_inst_addr = RegInit(0.U(bus_width.W))
   val r_inst_en   = RegInit(false.B)
 
@@ -129,7 +133,7 @@ class Cpu (bus_width: Int) extends Module {
   r_inst_en := io.run
 
   when(r_inst_en & cpath.io.ctl.jalr) {
-    r_inst_addr := w_ex_op1
+    r_inst_addr := w_ex_op1.asUInt
   } .elsewhen (r_inst_en & cpath.io.ctl.jal) {
     r_inst_addr := imm_j
   } .elsewhen (r_inst_en & cpath.io.ctl.br & (u_alu.io.res === 1.S)) {
@@ -164,11 +168,8 @@ class Cpu (bus_width: Int) extends Module {
   w_ra_rd     := r_inst_r1(11, 7)
   w_ra_opcode := r_inst_r1( 6, 2)
 
-  val cpath = Module(new CtlPath())
-
   cpath.io.inst := r_inst_r1
 
-  val u_regs = Module(new Regs)
 
   u_regs.io.rden0   := (cpath.io.ctl.op1_sel === OP1_RS1)
   u_regs.io.rdaddr0 := w_ra_rs1
@@ -181,7 +182,6 @@ class Cpu (bus_width: Int) extends Module {
   val r_ex_func3 = Reg(UInt(3.W))
   r_ex_func3 := w_ra_func3
 
-  val u_alu = Module (new Alu)
   u_alu.io.func := cpath.io.ctl.alu_fun
   u_alu.io.op0  := Mux(cpath.io.ctl.op1_sel === OP1_RS1, w_ex_op1,
                      Mux(cpath.io.ctl.op1_sel === OP1_IMU, Cat(r_inst_r1(31, 12), Fill(12,0.U)).asSInt,
