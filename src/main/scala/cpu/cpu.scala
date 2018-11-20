@@ -109,108 +109,94 @@ class CpuTop (bus_width: Int) extends Module {
 class Cpu (bus_width: Int) extends Module {
   val io = IO (new CpuIo(bus_width))
 
-  val cpath  = Module(new CtlPath())
-  val u_regs = Module(new Regs)
-  val u_alu  = Module (new Alu)
+  val u_cpath  = Module(new CtlPath())
+  val u_regs   = Module(new Regs)
+  val u_alu    = Module (new Alu)
 
-  val r_inst_addr = RegInit(0.U(bus_width.W))
-  val r_inst_en   = RegInit(false.B)
+  val if_inst_addr = RegInit(0.U(bus_width.W))
+  val if_inst_en   = RegInit(false.B)
 
   // Get Instruction
-  val r_inst_r1       = Reg(UInt(32.W))
-  val r_inst_addr_r1  = Reg(UInt(bus_width.W))
-  val r_inst_valid_r1 = Reg(Bool())
+  val dec_inst_data  = Reg(UInt(32.W))
+  val dec_inst_addr  = Reg(UInt(bus_width.W))
+  val dec_inst_valid = Reg(Bool())
 
-  val imm_i      = r_inst_r1(31, 20).asSInt
-  val imm_b      = Cat(r_inst_r1(31), r_inst_r1(7), r_inst_r1(30,25), r_inst_r1(11,8))
-  val imm_b_sext = Cat(Fill(19,imm_b(11)), imm_b, 0.U)
-  val imm_s      = Cat(r_inst_r1(31, 25), r_inst_r1(11,7)).asSInt
-  val imm_j      = Cat(r_inst_r1(31), r_inst_r1(19,12), r_inst_r1(20), r_inst_r1(30,21), 0.U(1.W))
-  val imm_j_sext = Cat(Fill(64-21, imm_j(20)), imm_j, 0.U(1.W))
+  val dec_imm_i      = dec_inst_data(31, 20).asSInt
+  val dec_imm_b      = Cat(dec_inst_data(31), dec_inst_data(7), dec_inst_data(30,25), dec_inst_data(11,8))
+  val dec_imm_b_sext = Cat(Fill(19,dec_imm_b(11)), dec_imm_b, 0.U)
+  val dec_imm_s      = Cat(dec_inst_data(31, 25), dec_inst_data(11,7)).asSInt
+  val dec_imm_j      = Cat(dec_inst_data(31), dec_inst_data(19,12), dec_inst_data(20), dec_inst_data(30,21), 0.U(1.W))
+  val dec_imm_j_sext = Cat(Fill(64-21, dec_imm_j(20)), dec_imm_j, 0.U(1.W))
 
-  val w_ex_op1 = Wire(SInt(64.W))
-  val w_ex_op2 = Wire(SInt(64.W))
+  val dec_reg_op0 = Wire(SInt(64.W))
+  val dec_reg_op1 = Wire(SInt(64.W))
 
-  val w_ex_jalr_en = cpath.io.ctl.jalr
-  val w_ex_jal_en  = cpath.io.ctl.jal
-  val w_ex_br_en   = cpath.io.ctl.br & (u_alu.io.res === 1.S)
-  val w_ex_jump_en = r_inst_en & (w_ex_jalr_en | w_ex_jal_en | w_ex_br_en)
+  val dec_jalr_en = u_cpath.io.ctl.jalr
+  val dec_jal_en  = u_cpath.io.ctl.jal
+  val dec_br_en   = u_cpath.io.ctl.br & (u_alu.io.res === 1.S)
+  val dec_jump_en = if_inst_en & (dec_jalr_en | dec_jal_en | dec_br_en)
 
-  r_inst_en := io.run
+  if_inst_en := io.run
 
-  when(r_inst_en & w_ex_jalr_en) {
-    r_inst_addr := w_ex_op1.asUInt
-  } .elsewhen (r_inst_en & w_ex_jal_en) {
-    r_inst_addr := r_inst_addr_r1 + imm_j
-  } .elsewhen (r_inst_en & w_ex_br_en) {
-    r_inst_addr := r_inst_addr_r1 + imm_b_sext
-  } .elsewhen(r_inst_en & io.inst_ack) {
-    r_inst_addr := r_inst_addr + 4.U
+  when(if_inst_en & dec_jalr_en) {
+    if_inst_addr := dec_reg_op0.asUInt
+  } .elsewhen (if_inst_en & dec_jal_en) {
+    if_inst_addr := dec_inst_addr + dec_imm_j
+  } .elsewhen (if_inst_en & dec_br_en) {
+    if_inst_addr := dec_inst_addr + dec_imm_b_sext
+  } .elsewhen(if_inst_en & io.inst_ack) {
+    if_inst_addr := if_inst_addr + 4.U
   }
 
-  io.inst_addr := r_inst_addr
-  io.inst_req  := r_inst_en
+  io.inst_addr := if_inst_addr
+  io.inst_req  := if_inst_en
 
-  when  (r_inst_en & io.inst_ack) {
-    r_inst_r1       := io.inst_data
-    r_inst_addr_r1  := r_inst_addr
-    r_inst_valid_r1 := Mux(w_ex_jump_en, false.B, true.B)
+  when  (if_inst_en & io.inst_ack) {
+    dec_inst_data    := io.inst_data
+    dec_inst_addr := if_inst_addr
+    dec_inst_valid := Mux(dec_jump_en, false.B, true.B)
   } .otherwise {
-    r_inst_valid_r1 := false.B
+    dec_inst_valid := false.B
   }
 
   // Opcode extraction and Register Read
-  val w_ra_func7  = Wire(UInt(7.W))
-  val w_ra_rs2    = Wire(UInt(5.W))
-  val w_ra_rs1    = Wire(UInt(5.W))
-  val w_ra_func3  = Wire(UInt(3.W))
-  val w_ra_rd     = Wire(UInt(5.W))
-  val w_ra_opcode = Wire(UInt(5.W))
+  val dec_inst_rs2 = dec_inst_data(24,20)
+  val dec_inst_rs1 = dec_inst_data(19,15)
+  val dec_inst_rd  = dec_inst_data(11, 7)
 
-  w_ra_func7  := r_inst_r1(31,25)
-  w_ra_rs2    := r_inst_r1(24,20)
-  w_ra_rs1    := r_inst_r1(19,15)
-  w_ra_func3  := r_inst_r1(14,12)
-  w_ra_rd     := r_inst_r1(11, 7)
-  w_ra_opcode := r_inst_r1( 6, 2)
+  u_cpath.io.inst := dec_inst_data
 
-  cpath.io.inst := r_inst_r1
+  u_regs.io.rden0   := (u_cpath.io.ctl.op1_sel === OP1_RS1)
+  u_regs.io.rdaddr0 := dec_inst_rs1
+  dec_reg_op0       := u_regs.io.rddata0
 
+  u_regs.io.rden1   := (u_cpath.io.ctl.op2_sel === OP2_RS2)
+  u_regs.io.rdaddr1 := dec_inst_rs2
+  dec_reg_op1       := u_regs.io.rddata1
 
-  u_regs.io.rden0   := (cpath.io.ctl.op1_sel === OP1_RS1)
-  u_regs.io.rdaddr0 := w_ra_rs1
-  w_ex_op1          := u_regs.io.rddata0
-
-  u_regs.io.rden1   := (cpath.io.ctl.op2_sel === OP2_RS2)
-  u_regs.io.rdaddr1 := w_ra_rs2
-  w_ex_op2          := u_regs.io.rddata1
-
-  val r_ex_func3 = Reg(UInt(3.W))
-  r_ex_func3 := w_ra_func3
-
-  u_alu.io.func := cpath.io.ctl.alu_fun
+  u_alu.io.func := u_cpath.io.ctl.alu_fun
   u_alu.io.op0 := 0.S
-  switch(cpath.io.ctl.op1_sel) {
-    is (OP1_RS1) { u_alu.io.op0 := w_ex_op1 }
-    is (OP1_IMU) { u_alu.io.op0 := Cat(r_inst_r1(31, 12), Fill(12,0.U)).asSInt }
-    is (OP1_IMZ) { u_alu.io.op0 := Cat(Fill(27,0.U), r_inst_r1(19,15)).asSInt }
+  switch(u_cpath.io.ctl.op1_sel) {
+    is (OP1_RS1) { u_alu.io.op0 := dec_reg_op0 }
+    is (OP1_IMU) { u_alu.io.op0 := Cat(dec_inst_data(31, 12), Fill(12,0.U)).asSInt }
+    is (OP1_IMZ) { u_alu.io.op0 := Cat(Fill(27,0.U), dec_inst_data(19,15)).asSInt }
   }
 
   u_alu.io.op1 := 0.S
-  switch(cpath.io.ctl.op2_sel) {
-    is (OP2_PC ) { u_alu.io.op1 :=  r_inst_addr_r1.asSInt }
-    is (OP2_RS2) { u_alu.io.op1 := w_ex_op2 }
-    is (OP2_IMI) { u_alu.io.op1 := Cat(Fill(20,imm_i(11)), imm_i).asSInt }
-    is (OP2_IMS) { u_alu.io.op1 := Cat(Fill(20,imm_s(11)), imm_s).asSInt }
+  switch(u_cpath.io.ctl.op2_sel) {
+    is (OP2_PC ) { u_alu.io.op1 := dec_inst_addr.asSInt }
+    is (OP2_RS2) { u_alu.io.op1 := dec_reg_op1 }
+    is (OP2_IMI) { u_alu.io.op1 := Cat(Fill(20,dec_imm_i(11)), dec_imm_i).asSInt }
+    is (OP2_IMS) { u_alu.io.op1 := Cat(Fill(20,dec_imm_s(11)), dec_imm_s).asSInt }
   }
 
-  u_regs.io.wren   := (cpath.io.ctl.alu_fun =/= ALU_X) | (cpath.io.ctl.jal === Y) | (cpath.io.ctl.jalr === Y)
-  u_regs.io.wraddr := w_ra_rd
-  u_regs.io.wrdata := Mux((cpath.io.ctl.jal === Y) | (cpath.io.ctl.jalr === Y), r_inst_addr_r1.asSInt + 4.S, u_alu.io.res)
+  u_regs.io.wren   := (u_cpath.io.ctl.alu_fun =/= ALU_X) | (u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y)
+  u_regs.io.wraddr := dec_inst_rd
+  u_regs.io.wrdata := Mux((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y), dec_inst_addr.asSInt + 4.S, u_alu.io.res)
 
-  io.dbg_monitor.inst_valid := r_inst_valid_r1
-  io.dbg_monitor.inst_addr  := r_inst_addr_r1
-  io.dbg_monitor.inst_hex   := r_inst_r1
+  io.dbg_monitor.inst_valid := dec_inst_valid
+  io.dbg_monitor.inst_addr  := dec_inst_addr
+  io.dbg_monitor.inst_hex   := dec_inst_data
   io.dbg_monitor.reg_wren   := u_regs.io.wren
   io.dbg_monitor.reg_wraddr := u_regs.io.wraddr
   io.dbg_monitor.reg_wrdata := u_regs.io.wrdata
