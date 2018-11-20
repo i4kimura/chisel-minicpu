@@ -5,3 +5,10 @@
 
 project
 target
+
+# Test Patterns
+*.elf
+*.dmp
+*.bin
+*.hex
+*.o
