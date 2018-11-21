@@ -9,28 +9,28 @@ import DecodeConsts._
 class Bus (val bus_width: Int) extends Bundle {
   val req  = Input(Bool())
   val addr = Input(UInt(bus_width.W))
-  val data = Input(UInt(32.W))
+  val data = Input(SInt(32.W))
 }
 
 
-// object PrintDec
-// {
-//   def apply(x: UInt, length: Int) =
-//   {
-//     require(length > 0)
-//     for (i <- length-1 to 0 by -1) {
-//       printf("%d", ((x / BigDecimal(math.pow(10, i)).toBigInt)) & 0xf.U)
-//     }
-//   }
-//
-//   // def apply(x: SInt, length: Int) =
-//   // {
-//   //   require(length > 0)
-//   //   for (i <- length-1 to 0 by -1) {
-//   //     printf("%x", (x.asUInt / (math.pow(10, i).toBigInt)) & 0xf.U)
-//   //   }
-//   // }
-// }
+class InstBus (val bus_width: Int) extends Bundle {
+  val req    = Output(Bool())
+  val addr   = Output(UInt(bus_width.W))
+
+  val ack    = Input(Bool())
+  val rddata = Input(SInt(32.W))
+}
+
+
+class DataBus (val bus_width: Int) extends Bundle {
+  val req    = Output(Bool())
+  val cmd    = Output(UInt(2.W))
+  val addr   = Output(UInt(bus_width.W))
+  val wrdata = Output(SInt(32.W))
+
+  val ack    = Input(Bool())
+  val rddata = Input(SInt(32.W))
+}
 
 
 class RegIo extends Bundle {
@@ -67,11 +67,8 @@ class CpuTopIo (bus_width: Int) extends Bundle {
 class CpuIo (bus_width: Int) extends Bundle {
   val run      = Input(Bool())
 
-  val inst_addr = Output(UInt(bus_width.W))
-  val inst_req  = Output(Bool())
-
-  val inst_ack  = Input(Bool())
-  val inst_data = Input(UInt(32.W))
+  val inst_bus = new InstBus(bus_width)
+  val data_bus = new DataBus(bus_width)
 
   val dbg_monitor = new CpuDebugMonitor()
 }
@@ -83,22 +80,11 @@ class CpuTop (bus_width: Int) extends Module {
   val memory = Module(new Memory(bus_width))
   val cpu    = Module(new Cpu(bus_width))
 
-  val w_instReq  = cpu.io.inst_req
-  val w_instAddr = cpu.io.inst_addr
-
-  // Connect CPU and Memory
-  memory.io.ren    := w_instReq
-  memory.io.rdaddr := w_instAddr(bus_width-1, 2)
-
-  memory.io.wen    := false.B
-  memory.io.wraddr := 0.U
-  memory.io.wrdata := 0.U
-
-  cpu.io.inst_ack   := memory.io.rden
-  cpu.io.inst_data  := memory.io.rddata
-
   cpu.io.run       := io.run
 
+  // Connect CPU and Memory
+  memory.io.inst_bus <> cpu.io.inst_bus
+  memory.io.data_bus <> cpu.io.data_bus
   // Memory Load for External Debug
   memory.io.ext_bus  <> io.ext_bus
 
@@ -144,15 +130,20 @@ class Cpu (bus_width: Int) extends Module {
     if_inst_addr := dec_inst_addr + dec_imm_j
   } .elsewhen (if_inst_en & dec_br_en) {
     if_inst_addr := dec_inst_addr + dec_imm_b_sext
-  } .elsewhen(if_inst_en & io.inst_ack) {
+  } .elsewhen(if_inst_en & io.inst_bus.ack) {
     if_inst_addr := if_inst_addr + 4.U
   }
 
-  io.inst_addr := if_inst_addr
-  io.inst_req  := if_inst_en
+  io.inst_bus.req  := if_inst_en
+  io.inst_bus.addr := if_inst_addr
 
-  when  (if_inst_en & io.inst_ack) {
-    dec_inst_data    := io.inst_data
+  io.data_bus.req    := u_cpath.io.ctl.mem_v
+  io.data_bus.cmd    := u_cpath.io.ctl.mem_cmd
+  io.data_bus.addr   := (dec_reg_op1 + dec_imm_i).asUInt
+  io.data_bus.wrdata := dec_reg_op0
+
+  when  (if_inst_en & io.inst_bus.ack) {
+    dec_inst_data := io.inst_bus.rddata.asUInt
     dec_inst_addr := if_inst_addr
     dec_inst_valid := Mux(dec_jump_en, false.B, true.B)
   } .otherwise {

@@ -3,6 +3,14 @@ package cpu
 import chisel3._
 import chisel3.util._
 
+object BusConsts
+{
+  val CMD_WR   = 1.U(2.W)
+  val CMD_RD   = 2.U(2.W)
+  val CMD_IDLE = 0.U(2.W)
+}
+
+
 object DecodeConsts
 {
   //************************************
@@ -72,25 +80,19 @@ object DecodeConsts
   val WB_CSR  = 3.asUInt(2.W)
   val WB_X    = 0.asUInt(2.W)
 
-  // Memory Function Type (Read,Write,Fence) Signal
-  val MWR_R   = 0.asUInt(2.W)
-  val MWR_W   = 1.asUInt(2.W)
-  val MWR_F   = 2.asUInt(2.W)
-  val MWR_X   = 0.asUInt(2.W)
-
-  // Memory Enable Signal
-  val MEN_0   = false.B
-  val MEN_1   = true.B
-  val MEN_X   = false.B
-
   // Memory Mask Type Signal
-  val MSK_B   = 0.asUInt(3.W)
-  val MSK_BU  = 1.asUInt(3.W)
-  val MSK_H   = 2.asUInt(3.W)
-  val MSK_HU  = 3.asUInt(3.W)
-  val MSK_W   = 4.asUInt(3.W)
-  val MSK_X   = 4.asUInt(3.W)
+  val MT_B   = 0.asUInt(3.W)
+  val MT_BU  = 1.asUInt(3.W)
+  val MT_H   = 2.asUInt(3.W)
+  val MT_HU  = 3.asUInt(3.W)
+  val MT_W   = 4.asUInt(3.W)
+  val MT_X   = 4.asUInt(3.W)
 
+  // Memory Functions (read, write, fence)
+  val MCMD_WR = 1.asUInt(2.W)
+  val MCMD_RD = 2.asUInt(2.W)
+  val MCMD_FE = 3.asUInt(2.W)
+  val MCMD_X  = 0.asUInt(2.W)
 
   // Cache Flushes & Sync Primitives
   val M_N      = 0.asUInt(3.W)
@@ -98,10 +100,5 @@ object DecodeConsts
   val M_SD     = 2.asUInt(3.W)   // synch data stream
   val M_FA     = 3.asUInt(3.W)   // flush all caches
   val M_FD     = 4.asUInt(3.W)   // flush data cache
-
-  // Memory Functions (read, write, fence)
-  val MT_READ  = 0.asUInt(2.W)
-  val MT_WRITE = 1.asUInt(2.W)
-  val MT_FENCE = 2.asUInt(2.W)
 
 }
