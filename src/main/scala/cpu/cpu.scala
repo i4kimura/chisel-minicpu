@@ -26,10 +26,10 @@ class DataBus (val bus_width: Int) extends Bundle {
   val req    = Output(Bool())
   val cmd    = Output(UInt(2.W))
   val addr   = Output(UInt(bus_width.W))
-  val wrdata = Output(SInt(32.W))
+  val wrdata = Output(SInt(64.W))
 
   val ack    = Input(Bool())
-  val rddata = Input(SInt(32.W))
+  val rddata = Input(SInt(64.W))
 }
 
 
