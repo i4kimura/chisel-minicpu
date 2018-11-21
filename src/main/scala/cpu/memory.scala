@@ -22,15 +22,15 @@ class Memory (bus_width: Int) extends Module {
   }
 
   /* Inst Bus */
-  io.inst_bus.rddata := memory(io.inst_bus.addr).asSInt
+  io.inst_bus.rddata := memory(io.inst_bus.addr(bus_width-1, 2)).asSInt
   io.inst_bus.ack    := io.inst_bus.req
 
   /* Data Bus */
-  io.data_bus.rddata := memory(io.data_bus.addr).asSInt
+  io.data_bus.rddata := memory(io.data_bus.addr(bus_width-1, 2)).asSInt
   io.data_bus.ack    := io.data_bus.req & (io.data_bus.cmd === CMD_RD)
 
   when(io.data_bus.req & (io.data_bus.cmd === CMD_WR)) {
-    memory(io.data_bus.addr) := io.data_bus.wrdata.asUInt
+    memory(io.data_bus.addr(bus_width-1, 2)) := io.data_bus.wrdata.asUInt
   }
 
 }
