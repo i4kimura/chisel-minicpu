@@ -20,35 +20,35 @@ object DecodeConsts
   val N      = false.B
 
   // PC Select Signal
-  val PC_4   = 0.asUInt(3.W)  // PC + 4
-  val PC_BR  = 1.asUInt(3.W)  // branch_target
-  val PC_J   = 2.asUInt(3.W)  // jump_target
-  val PC_JR  = 3.asUInt(3.W)  // jump_reg_target
-  val PC_EXC = 4.asUInt(3.W)  // exception
+  val PC_4   = 0.U(3.W)  // PC + 4
+  val PC_BR  = 1.U(3.W)  // branch_target
+  val PC_J   = 2.U(3.W)  // jump_target
+  val PC_JR  = 3.U(3.W)  // jump_reg_target
+  val PC_EXC = 4.U(3.W)  // exception
 
   // Branch Type
-  val BR_N   = 0.asUInt(4.W)  // Next
-  val BR_NE  = 1.asUInt(4.W)  // Branch on NotEqual
-  val BR_EQ  = 2.asUInt(4.W)  // Branch on Equal
-  val BR_GE  = 3.asUInt(4.W)  // Branch on Greater/Equal
-  val BR_GEU = 4.asUInt(4.W)  // Branch on Greater/Equal Unsigned
-  val BR_LT  = 5.asUInt(4.W)  // Branch on Less Than
-  val BR_LTU = 6.asUInt(4.W)  // Branch on Less Than Unsigned
-  val BR_J   = 7.asUInt(4.W)  // Jump
-  val BR_JR  = 8.asUInt(4.W)  // Jump Register
+  val BR_N   = 0.U(4.W)  // Next
+  val BR_NE  = 1.U(4.W)  // Branch on NotEqual
+  val BR_EQ  = 2.U(4.W)  // Branch on Equal
+  val BR_GE  = 3.U(4.W)  // Branch on Greater/Equal
+  val BR_GEU = 4.U(4.W)  // Branch on Greater/Equal Unsigned
+  val BR_LT  = 5.U(4.W)  // Branch on Less Than
+  val BR_LTU = 6.U(4.W)  // Branch on Less Than Unsigned
+  val BR_J   = 7.U(4.W)  // Jump
+  val BR_JR  = 8.U(4.W)  // Jump Register
 
   // RS1 Operand Select Signal
-  val OP1_RS1 = 0.asUInt(2.W) // Register Source #1
-  val OP1_IMU = 1.asUInt(2.W) // immediate, U-type
-  val OP1_IMZ = 2.asUInt(2.W) // Zero-extended rs1 field of inst, for CSRI instructions
-  val OP1_X   = 0.asUInt(2.W)
+  val OP1_RS1 = 0.U(2.W) // Register Source #1
+  val OP1_IMU = 1.U(2.W) // immediate, U-type
+  val OP1_IMZ = 2.U(2.W) // Zero-extended rs1 field of inst, for CSRI instructions
+  val OP1_X   = 0.U(2.W)
 
   // RS2 Operand Select Signal
-  val OP2_RS2 = 0.asUInt(2.W) // Register Source #2
-  val OP2_IMI = 1.asUInt(2.W) // immediate, I-type
-  val OP2_IMS = 2.asUInt(2.W) // immediate, S-type
-  val OP2_PC  = 3.asUInt(2.W) // PC
-  val OP2_X   = 0.asUInt(2.W)
+  val OP2_RS2 = 0.U(2.W) // Register Source #2
+  val OP2_IMI = 1.U(2.W) // immediate, I-type
+  val OP2_IMS = 2.U(2.W) // immediate, S-type
+  val OP2_PC  = 3.U(2.W) // PC
+  val OP2_X   = 0.U(2.W)
 
   // Register File Write Enable Signal
   val REN_0   = false.B
@@ -56,49 +56,50 @@ object DecodeConsts
   val REN_X   = false.B
 
   // ALU Operation Signal
-  val ALU_ADD  = 1.asUInt(4.W)
-  val ALU_SUB  = 2.asUInt(4.W)
-  val ALU_SLL  = 3.asUInt(4.W)
-  val ALU_SRL  = 4.asUInt(4.W)
-  val ALU_SRA  = 5.asUInt(4.W)
-  val ALU_AND  = 6.asUInt(4.W)
-  val ALU_OR   = 7.asUInt(4.W)
-  val ALU_XOR  = 8.asUInt(4.W)
-  val ALU_SLT  = 9.asUInt(4.W)
-  val ALU_SLTU = 10.asUInt(4.W)
-  val ALU_SNE  = 11.asUInt(4.W)
-  val ALU_SEQ  = 12.asUInt(4.W)
-  val ALU_SGE  = 13.asUInt(4.W)
-  val ALU_SGEU = 14.asUInt(4.W)
-  val ALU_COPY1= 15.asUInt(4.W)
-  val ALU_X    = 0.asUInt(4.W)
+  val ALU_ADD  = 1.U(4.W)
+  val ALU_SUB  = 2.U(4.W)
+  val ALU_SLL  = 3.U(4.W)
+  val ALU_SRL  = 4.U(4.W)
+  val ALU_SRA  = 5.U(4.W)
+  val ALU_AND  = 6.U(4.W)
+  val ALU_OR   = 7.U(4.W)
+  val ALU_XOR  = 8.U(4.W)
+  val ALU_SLT  = 9.U(4.W)
+  val ALU_SLTU = 10.U(4.W)
+  val ALU_SNE  = 11.U(4.W)
+  val ALU_SEQ  = 12.U(4.W)
+  val ALU_SGE  = 13.U(4.W)
+  val ALU_SGEU = 14.U(4.W)
+  val ALU_COPY1= 15.U(4.W)
+  val ALU_X    = 0.U(4.W)
 
   // Writeback Select Signal
-  val WB_ALU  = 0.asUInt(2.W)
-  val WB_MEM  = 1.asUInt(2.W)
-  val WB_PC4  = 2.asUInt(2.W)
-  val WB_CSR  = 3.asUInt(2.W)
-  val WB_X    = 0.asUInt(2.W)
+  val WB_ALU  = 0.U(2.W)
+  val WB_MEM  = 1.U(2.W)
+  val WB_PC4  = 2.U(2.W)
+  val WB_CSR  = 3.U(2.W)
+  val WB_X    = 0.U(2.W)
 
   // Memory Mask Type Signal
-  val MT_B   = 0.asUInt(3.W)
-  val MT_BU  = 1.asUInt(3.W)
-  val MT_H   = 2.asUInt(3.W)
-  val MT_HU  = 3.asUInt(3.W)
-  val MT_W   = 4.asUInt(3.W)
-  val MT_X   = 4.asUInt(3.W)
+  val MT_B   = 1.U(3.W)
+  val MT_BU  = 2.U(3.W)
+  val MT_H   = 3.U(3.W)
+  val MT_HU  = 4.U(3.W)
+  val MT_W   = 5.U(3.W)
+  val MT_D   = 6.U(3.W)
+  val MT_X   = 0.U(3.W)
 
   // Memory Functions (read, write, fence)
-  val MCMD_WR = 1.asUInt(2.W)
-  val MCMD_RD = 2.asUInt(2.W)
-  val MCMD_FE = 3.asUInt(2.W)
-  val MCMD_X  = 0.asUInt(2.W)
+  val MCMD_WR = 1.U(2.W)
+  val MCMD_RD = 2.U(2.W)
+  val MCMD_FE = 3.U(2.W)
+  val MCMD_X  = 0.U(2.W)
 
   // Cache Flushes & Sync Primitives
-  val M_N      = 0.asUInt(3.W)
-  val M_SI     = 1.asUInt(3.W)   // synch instruction stream
-  val M_SD     = 2.asUInt(3.W)   // synch data stream
-  val M_FA     = 3.asUInt(3.W)   // flush all caches
-  val M_FD     = 4.asUInt(3.W)   // flush data cache
+  val M_N      = 0.U(3.W)
+  val M_SI     = 1.U(3.W)   // synch instruction stream
+  val M_SD     = 2.U(3.W)   // synch data stream
+  val M_FA     = 3.U(3.W)   // flush all caches
+  val M_FD     = 4.U(3.W)   // flush data cache
 
 }

@@ -52,9 +52,18 @@ class CpuDebugMonitor extends Bundle {
   val inst_valid = Output(Bool())
   val inst_addr  = Output(UInt(32.W))
   val inst_hex   = Output(UInt(32.W))
+
   val reg_wren   = Output(Bool())
   val reg_wraddr = Output(UInt(5.W))
   val reg_wrdata = Output(SInt(64.W))
+
+  // DataBus
+  val data_bus_req    = Output(Bool())
+  val data_bus_cmd    = Output(UInt(2.W))
+  val data_bus_addr   = Output(UInt(32.W))
+  val data_bus_wrdata = Output(SInt(32.W))
+  val data_bus_ack    = Output(Bool())
+  val data_bus_rddata = Output(SInt(32.W))
 }
 
 class CpuTopIo (bus_width: Int) extends Bundle {
@@ -139,8 +148,8 @@ class Cpu (bus_width: Int) extends Module {
 
   io.data_bus.req    := u_cpath.io.ctl.mem_v
   io.data_bus.cmd    := u_cpath.io.ctl.mem_cmd
-  io.data_bus.addr   := (dec_reg_op1 + dec_imm_i).asUInt
-  io.data_bus.wrdata := dec_reg_op0
+  io.data_bus.addr   := u_alu.io.res.asUInt
+  io.data_bus.wrdata := dec_reg_op1
 
   when  (if_inst_en & io.inst_bus.ack) {
     dec_inst_data := io.inst_bus.rddata.asUInt
@@ -157,11 +166,11 @@ class Cpu (bus_width: Int) extends Module {
 
   u_cpath.io.inst := dec_inst_data
 
-  u_regs.io.rden0   := (u_cpath.io.ctl.op1_sel === OP1_RS1)
+  u_regs.io.rden0   := true.B
   u_regs.io.rdaddr0 := dec_inst_rs1
   dec_reg_op0       := u_regs.io.rddata0
 
-  u_regs.io.rden1   := (u_cpath.io.ctl.op2_sel === OP2_RS2)
+  u_regs.io.rden1   := true.B
   u_regs.io.rdaddr1 := dec_inst_rs2
   dec_reg_op1       := u_regs.io.rddata1
 
@@ -181,16 +190,26 @@ class Cpu (bus_width: Int) extends Module {
     is (OP2_IMS) { u_alu.io.op1 := Cat(Fill(20,dec_imm_s(11)), dec_imm_s).asSInt }
   }
 
-  u_regs.io.wren   := (u_cpath.io.ctl.alu_fun =/= ALU_X) | (u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y)
+  u_regs.io.wren   := u_cpath.io.ctl.wb_en
   u_regs.io.wraddr := dec_inst_rd
   u_regs.io.wrdata := Mux((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y), dec_inst_addr.asSInt + 4.S, u_alu.io.res)
 
+
+  /* Debug-Port */
   io.dbg_monitor.inst_valid := dec_inst_valid
   io.dbg_monitor.inst_addr  := dec_inst_addr
   io.dbg_monitor.inst_hex   := dec_inst_data
+
   io.dbg_monitor.reg_wren   := u_regs.io.wren
   io.dbg_monitor.reg_wraddr := u_regs.io.wraddr
   io.dbg_monitor.reg_wrdata := u_regs.io.wrdata
+
+  io.dbg_monitor.data_bus_req    := io.data_bus.req
+  io.dbg_monitor.data_bus_cmd    := io.data_bus.cmd
+  io.dbg_monitor.data_bus_addr   := io.data_bus.addr
+  io.dbg_monitor.data_bus_wrdata := io.data_bus.wrdata
+  io.dbg_monitor.data_bus_ack    := io.data_bus.ack
+  io.dbg_monitor.data_bus_rddata := io.data_bus.rddata
 
 }
 
