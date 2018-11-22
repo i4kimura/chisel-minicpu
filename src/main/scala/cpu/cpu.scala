@@ -26,6 +26,7 @@ class DataBus (val bus_width: Int) extends Bundle {
   val req    = Output(Bool())
   val cmd    = Output(UInt(2.W))
   val addr   = Output(UInt(bus_width.W))
+  val size   = Output(UInt(3.W))
   val wrdata = Output(SInt(64.W))
 
   val ack    = Input(Bool())
@@ -61,9 +62,9 @@ class CpuDebugMonitor extends Bundle {
   val data_bus_req    = Output(Bool())
   val data_bus_cmd    = Output(UInt(2.W))
   val data_bus_addr   = Output(UInt(32.W))
-  val data_bus_wrdata = Output(SInt(32.W))
+  val data_bus_wrdata = Output(SInt(64.W))
   val data_bus_ack    = Output(Bool())
-  val data_bus_rddata = Output(SInt(32.W))
+  val data_bus_rddata = Output(SInt(64.W))
 }
 
 class CpuTopIo (bus_width: Int) extends Bundle {
@@ -148,6 +149,7 @@ class Cpu (bus_width: Int) extends Module {
 
   io.data_bus.req    := u_cpath.io.ctl.mem_v
   io.data_bus.cmd    := u_cpath.io.ctl.mem_cmd
+  io.data_bus.size   := u_cpath.io.ctl.mem_type
   io.data_bus.addr   := u_alu.io.res.asUInt
   io.data_bus.wrdata := dec_reg_op1
 
@@ -192,7 +194,8 @@ class Cpu (bus_width: Int) extends Module {
 
   u_regs.io.wren   := u_cpath.io.ctl.wb_en
   u_regs.io.wraddr := dec_inst_rd
-  u_regs.io.wrdata := Mux((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y), dec_inst_addr.asSInt + 4.S, u_alu.io.res)
+  u_regs.io.wrdata := Mux((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y), dec_inst_addr.asSInt + 4.S,
+                      Mux(u_cpath.io.ctl.mem_cmd =/= MCMD_X, io.data_bus.rddata, u_alu.io.res))
 
 
   /* Debug-Port */

@@ -91,9 +91,9 @@ class CpuTopTests(c: CpuTop) extends PeekPokeTester(c)
       val data_bus_rddata = peek(cpu_tb.io.dbg_monitor.data_bus_rddata)
 
       if (data_bus_req == 1 && data_bus_cmd == peek(CMD_WR)) {
-        writer.printf(" [%08x]<=0x%016x".format(data_bus_addr, data_bus_wrdata))
+        writer.printf(" [%08x]<=0x%016x".format(data_bus_addr, data_bus_wrdata.toLong))
       } else if (data_bus_req == 1 && data_bus_cmd == peek(CMD_RD)) {
-        writer.printf(" [%08x]=>0x%016x".format(data_bus_addr, data_bus_rddata))
+        writer.printf(" [%08x]=>0x%016x".format(data_bus_addr, data_bus_rddata.toLong))
       } else {
         writer.printf("                               ")
       }

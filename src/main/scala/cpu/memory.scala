@@ -5,6 +5,7 @@ import chisel3.util._
 import chisel3.Bool
 
 import BusConsts._
+import DecodeConsts._
 
 class MemoryIo (bus_width: Int) extends Bundle {
   val inst_bus = Flipped(new InstBus(bus_width))
@@ -24,10 +25,10 @@ class Memory (bus_width: Int) extends Module {
     val memory = Mem(math.pow(2, bus_width).toInt , UInt(8.W))
 
     val bank_idx = bank.U(3.W)
-    val data_msb = (bank & 0x3)*8+7
-    val data_lsb = (bank & 0x3)*8+0
 
     when (io.ext_bus.req) {
+      val data_msb = (bank & 0x3)*8+7
+      val data_lsb = (bank & 0x3)*8+0
       when(io.ext_bus.addr(0) === bank_idx(2)) {
         memory(io.ext_bus.addr(bus_width-1, 1)) := io.ext_bus.data(data_msb, data_lsb)
         printf(p"<Info : Bank ${Decimal(bank_idx)} : Address 0x${Hexadecimal(io.ext_bus.addr)} : Write 0x${Hexadecimal(io.ext_bus.data(data_msb, data_lsb))}>\n")
@@ -40,8 +41,29 @@ class Memory (bus_width: Int) extends Module {
     /* Data Bus */
     data_rd_data(bank) := memory(io.data_bus.addr(bus_width-1, 3))
 
-    when(io.data_bus.req & (io.data_bus.cmd === CMD_WR) & io.data_bus.addr(2) === bank_idx(2)) {
-      memory(io.data_bus.addr(bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+    val data_msb = bank * 8 + 7
+    val data_lsb = bank * 8 + 0
+    when(io.data_bus.req & (io.data_bus.cmd === CMD_WR)) {
+      switch (io.data_bus.size) {
+        is (MT_D) {
+          memory(io.data_bus.addr(bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+        }
+        is (MT_W) {
+          if (io.data_bus.addr(2) == bank_idx(2)) {
+            memory(io.data_bus.addr(bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+          }
+        }
+        is (MT_H) {
+          if (io.data_bus.addr(2,1) == bank_idx(2,1)) {
+            memory(io.data_bus.addr(bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+          }
+        }
+        is (MT_B) {
+          if (io.data_bus.addr(2,0) == bank_idx(2,0)) {
+            memory(io.data_bus.addr(bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+          }
+        }
+      }
     }
   }
 
@@ -53,10 +75,31 @@ class Memory (bus_width: Int) extends Module {
   }
 
   io.data_bus.ack := io.data_bus.req & (io.data_bus.cmd === CMD_RD)
-  when(io.data_bus.req & io.data_bus.addr(2) === 0.U(1.W)) {
-    io.data_bus.rddata := Cat(data_rd_data(3), data_rd_data(2), data_rd_data(1), data_rd_data(0)).asSInt
-  } .otherwise {
-    io.data_bus.rddata := Cat(data_rd_data(7), data_rd_data(6), data_rd_data(5), data_rd_data(4)).asSInt
+  io.data_bus.rddata := 0.S(64.W)
+  switch (io.data_bus.size) {
+    is(MT_D) {
+      io.data_bus.rddata := Cat(data_rd_data(7), data_rd_data(6), data_rd_data(5), data_rd_data(4),
+        data_rd_data(3), data_rd_data(2), data_rd_data(1), data_rd_data(0)).asSInt
+    }
+    is(MT_W) {
+      io.data_bus.rddata := Cat(Fill(32, 0.U(1.W)), data_rd_data(io.data_bus.addr(2) * 4.U + 3.U),
+        data_rd_data(io.data_bus.addr(2) * 4.U + 2.U),
+        data_rd_data(io.data_bus.addr(2) * 4.U + 1.U),
+        data_rd_data(io.data_bus.addr(2) * 4.U + 0.U)).asSInt
+    }
+    is(MT_HU) {
+      val target_data = Cat(data_rd_data(io.data_bus.addr(2,1) * 2.U + 1.U), data_rd_data(io.data_bus.addr(2,1) * 2.U + 0.U))
+      io.data_bus.rddata := Cat(0.U(48.W), target_data).asSInt
+    }
+    is(MT_H ) {
+      val target_data = Cat(data_rd_data(io.data_bus.addr(2,1) * 2.U + 1.U), data_rd_data(io.data_bus.addr(2,1) * 2.U + 0.U))
+      io.data_bus.rddata := Cat(Fill(48, target_data(15)), target_data).asSInt
+    }
+    is(MT_BU) { io.data_bus.rddata := Cat(Fill(56, 0.U), data_rd_data(io.data_bus.addr(2, 0))).asSInt }
+    is(MT_B ) {
+      val target_data = data_rd_data(io.data_bus.addr(2,0))
+      io.data_bus.rddata := Cat(Fill(56, target_data(7)), target_data).asSInt
+    }
   }
 
 }
