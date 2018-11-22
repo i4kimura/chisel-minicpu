@@ -18,15 +18,11 @@ class CsrFileIo extends Bundle {
 
 object CSR
 {
-  // commands
-  val SZ = 3.W
-  val X = 0.U(3.W)
-  val N = 0.U(3.W)
-  val W = 1.U(3.W)
-  val S = 2.U(3.W)
-  val C = 3.U(3.W)
-  val I = 4.U(3.W)
-  val R = 5.U(3.W)
+  val X     = 0.U(3.W)
+  val Exch  = 1.U(3.W)
+  val Set   = 2.U(3.W)
+  val Clear = 3.U(3.W)
+  val Inst  = 4.U(3.W)
 }
 
 
@@ -127,8 +123,8 @@ class CsrFile extends Module
   // reset_dcsr.prv := PRV.M
   // val reg_dcsr = RegInit(reset_dcsr)
 
-  val system_insn = io.rw.cmd === CSR.I
-  val cpu_ren = io.rw.cmd =/= CSR.N && !system_insn
+  val system_insn = io.rw.cmd === CSR.Inst
+  val cpu_ren = io.rw.cmd =/= CSR.X && !system_insn
 
   /* val read_mstatus = io.status.asUInt() */
   val read_mstatus = 0.U
@@ -200,7 +196,7 @@ class CsrFile extends Module
 
   val priv_sufficient = reg_mstatus.prv >= io.rw.addr(9,8)
   val read_only = io.rw.addr(11,10).andR
-  val cpu_wen = cpu_ren && io.rw.cmd =/= CSR.R && priv_sufficient
+  val cpu_wen = cpu_ren && io.rw.cmd =/= CSR.X && priv_sufficient
   val wen = cpu_wen && !read_only
   val wdata = readModifyWriteCSR(io.rw.cmd, io.rw.rdata, io.rw.wdata)
 
@@ -214,5 +210,5 @@ class CsrFile extends Module
   io.rw.rdata := Mux1H(for ((k, v) <- read_mapping) yield decoded_addr(k) -> v)
 
   def readModifyWriteCSR(cmd: UInt, rdata: UInt, wdata: UInt) =
-    (Mux((cmd === CSR.S |  cmd === CSR.C), rdata, 0.U) | wdata) & ~Mux(cmd === CSR.C, wdata, 0.U)
+    (Mux((cmd === CSR.Set |  cmd === CSR.Clear), rdata, 0.U) | wdata) & ~Mux(cmd === CSR.Clear, wdata, 0.U)
 }

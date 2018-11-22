@@ -195,13 +195,14 @@ class Cpu (bus_width: Int) extends Module {
 
   u_regs.io.wren   := u_cpath.io.ctl.wb_en
   u_regs.io.wraddr := dec_inst_rd
-  u_regs.io.wrdata := Mux((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y), dec_inst_addr.asSInt + 4.S,
-                      Mux(u_cpath.io.ctl.mem_cmd =/= MCMD_X, io.data_bus.rddata, u_alu.io.res))
+  u_regs.io.wrdata := Mux ((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y), dec_inst_addr.asSInt + 4.S,
+                      Mux (u_cpath.io.ctl.mem_cmd =/= MCMD_X, io.data_bus.rddata,
+                      u_alu.io.res))
 
   /* CSR Port */
-  u_csrfile.io.rw.cmd   := 0.U
-  u_csrfile.io.rw.addr  := 0.U
-  u_csrfile.io.rw.wdata := 0.U
+  u_csrfile.io.rw.cmd   := u_cpath.io.ctl.wbcsr
+  u_csrfile.io.rw.addr  := dec_imm_i.asUInt
+  u_csrfile.io.rw.wdata := u_alu.io.res.asUInt
 
   /* Debug-Port */
   io.dbg_monitor.inst_valid := dec_inst_valid
