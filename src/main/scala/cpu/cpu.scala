@@ -105,9 +105,10 @@ class CpuTop (bus_width: Int) extends Module {
 class Cpu (bus_width: Int) extends Module {
   val io = IO (new CpuIo(bus_width))
 
-  val u_cpath  = Module(new CtlPath())
-  val u_regs   = Module(new Regs)
-  val u_alu    = Module (new Alu)
+  val u_cpath   = Module (new CtlPath)
+  val u_regs    = Module (new Regs)
+  val u_alu     = Module (new Alu)
+  val u_csrfile = Module (new CsrFile)
 
   val if_inst_addr = RegInit(0.U(bus_width.W))
   val if_inst_en   = RegInit(false.B)
@@ -197,6 +198,10 @@ class Cpu (bus_width: Int) extends Module {
   u_regs.io.wrdata := Mux((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y), dec_inst_addr.asSInt + 4.S,
                       Mux(u_cpath.io.ctl.mem_cmd =/= MCMD_X, io.data_bus.rddata, u_alu.io.res))
 
+  /* CSR Port */
+  u_csrfile.io.rw.cmd   := 0.U
+  u_csrfile.io.rw.addr  := 0.U
+  u_csrfile.io.rw.wdata := 0.U
 
   /* Debug-Port */
   io.dbg_monitor.inst_valid := dec_inst_valid
