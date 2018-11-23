@@ -128,7 +128,7 @@ class CtlPath extends Module
         CSRRC   -> List(Y, OP1_RS1, OP2_X   , ALU_COPY1, Y,  CSR.Clear, N,   N,     N,    N,      MCMD_X,   MT_X  ),
 
         ECALL   -> List(Y, OP1_X  , OP2_X  ,  ALU_X    , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        MRET    -> List(Y, OP1_X  , OP2_X  ,  ALU_X    , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        MRET    -> List(Y, OP1_X  , OP2_X  ,  ALU_X    , Y,  CSR.Mret,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
         DRET    -> List(Y, OP1_X  , OP2_X  ,  ALU_X    , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
         EBREAK  -> List(Y, OP1_X  , OP2_X  ,  ALU_X    , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
         WFI     -> List(Y, OP1_X  , OP2_X  ,  ALU_X    , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ), // implemented as a NOP

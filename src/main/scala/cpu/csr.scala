@@ -13,6 +13,7 @@ class CsrFileIo extends Bundle {
     val rdata = Output(UInt(64.W))
     val wdata = Input(UInt(64.W))
   }
+  val mepc = Output(UInt(64.W))
 }
 
 
@@ -23,6 +24,7 @@ object CSR
   val Set   = 2.U(3.W)
   val Clear = 3.U(3.W)
   val Inst  = 4.U(3.W)
+  val Mret  = 5.U(3.W)
 }
 
 
@@ -205,6 +207,17 @@ class CsrFile extends Module
   val insn_break = system_insn && opcode(1)
   val insn_ret = system_insn && opcode(2) && priv_sufficient
   val insn_wfi = system_insn && opcode(5) && priv_sufficient
+
+  io.mepc := reg_mepc
+
+  when (decoded_addr(CsrAddr.dpc))      { reg_dpc := wdata }
+  when (decoded_addr(CsrAddr.dscratch)) { reg_dscratch := wdata }
+
+  when (decoded_addr(CsrAddr.mepc))     { reg_mepc := (wdata(63,0) >> 2.U) << 2.U }
+  when (decoded_addr(CsrAddr.mscratch)) { reg_mscratch := wdata }
+  when (decoded_addr(CsrAddr.mcause))   { reg_mcause := wdata & ((BigInt(1) << (63)) + 31).U /* only implement 5 LSBs and MSB */ }
+  when (decoded_addr(CsrAddr.mtval))    { reg_mtval := wdata(63,0) }
+  when (decoded_addr(CsrAddr.medeleg))  { reg_medeleg := wdata(63,0) }
 
   private def decodeAny(m: LinkedHashMap[Int,Bits]): Bool = m.map { case(k: Int, _: Bits) => io.rw.addr === k.U(12.W) }.reduce(_||_)
   io.rw.rdata := Mux1H(for ((k, v) <- read_mapping) yield decoded_addr(k) -> v)

@@ -1,1 +1,1 @@
-tests/ldst/ldst.hex
+tests/riscv-tests/rv64ui-p-add.hex

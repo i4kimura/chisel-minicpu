@@ -131,19 +131,18 @@ class Cpu (bus_width: Int) extends Module {
   val dec_jalr_en = u_cpath.io.ctl.jalr
   val dec_jal_en  = u_cpath.io.ctl.jal
   val dec_br_en   = u_cpath.io.ctl.br & (u_alu.io.res === 1.S)
-  val dec_jump_en = if_inst_en & (dec_jalr_en | dec_jal_en | dec_br_en)
+  val dec_mret_en = (u_cpath.io.ctl.wbcsr === CSR.Mret)
+  val dec_jump_en = if_inst_en & (dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en)
 
   if_inst_en := io.run
 
-  when(if_inst_en & dec_jalr_en) {
-    if_inst_addr := dec_reg_op0.asUInt
-  } .elsewhen (if_inst_en & dec_jal_en) {
-    if_inst_addr := dec_inst_addr + dec_imm_j
-  } .elsewhen (if_inst_en & dec_br_en) {
-    if_inst_addr := dec_inst_addr + dec_imm_b_sext
-  } .elsewhen(if_inst_en & io.inst_bus.ack) {
-    if_inst_addr := if_inst_addr + 4.U
-  }
+  if_inst_addr := MuxCase (0.U, Array (
+    (if_inst_en & dec_jalr_en) -> dec_reg_op0.asUInt,
+    (if_inst_en & dec_jal_en)  -> (dec_inst_addr + dec_imm_j),
+    (if_inst_en & dec_br_en)   -> (dec_inst_addr + dec_imm_b_sext),
+    (if_inst_en & dec_mret_en) -> u_csrfile.io.mepc,
+    (if_inst_en & io.inst_bus.ack) -> (if_inst_addr + 4.U)
+  ))
 
   io.inst_bus.req  := if_inst_en
   io.inst_bus.addr := if_inst_addr

@@ -31,7 +31,6 @@ class Memory (bus_width: Int) extends Module {
       val data_lsb = (bank & 0x3)*8+0
       when(io.ext_bus.addr(0) === bank_idx(2)) {
         memory(io.ext_bus.addr(bus_width-1, 1)) := io.ext_bus.data(data_msb, data_lsb)
-        printf(p"<Info : Bank ${Decimal(bank_idx)} : Address 0x${Hexadecimal(io.ext_bus.addr)} : Write 0x${Hexadecimal(io.ext_bus.data(data_msb, data_lsb))}>\n")
       }
     }
 
@@ -71,6 +70,7 @@ class Memory (bus_width: Int) extends Module {
   when(io.inst_bus.req & io.inst_bus.addr(2) === 0.U(1.W)) {
     io.inst_bus.rddata := Cat(inst_rd_data(3), inst_rd_data(2), inst_rd_data(1), inst_rd_data(0)).asSInt
   } .otherwise {
+    printf("PC = %x, data = %x\n", io.inst_bus.addr, Cat(inst_rd_data(7), inst_rd_data(6), inst_rd_data(5), inst_rd_data(4)))
     io.inst_bus.rddata := Cat(inst_rd_data(7), inst_rd_data(6), inst_rd_data(5), inst_rd_data(4)).asSInt
   }
 
