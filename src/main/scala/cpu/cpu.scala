@@ -281,10 +281,7 @@ class Alu extends Module {
     is (ALU_SGE  ) { w_res := Mux(io.op0        >= io.op1,        1.S, 0.S) }
     is (ALU_SGEU ) { w_res := Mux(io.op0.asUInt >= io.op1.asUInt, 1.S, 0.S) }
     is (ALU_COPY1) { w_res := io.op0                                        }
-    is (ALU_ADDW ) {
-	  w_res := (io.op0(31, 0) + io.op1(31, 0)).asSInt
-	  printf("%x + %x\n", io.op0(31, 0), io.op1(31, 0))
-	}
+    is (ALU_ADDW ) { w_res := (io.op0(31, 0) + io.op1(31, 0)).asSInt        }
     is (ALU_SUBW ) { w_res := (io.op0(31, 0) - io.op1(31, 0)).asSInt               }
     is (ALU_SLLW ) { w_res := (io.op0(31, 0).asUInt << io.op1(5,0).asUInt).asSInt  }
     is (ALU_SRLW ) { w_res := (io.op0(31, 0).asUInt >> io.op1(5,0).asUInt).asSInt  }
