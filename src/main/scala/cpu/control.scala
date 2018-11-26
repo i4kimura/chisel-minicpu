@@ -31,7 +31,7 @@ class CtrlSignals extends Bundle()
   val brjmp_sel  = Output(Bool())
   val op1_sel    = Output(UInt(2.W))
   val op2_sel    = Output(UInt(2.W))
-  val alu_fun    = Output(UInt(4.W))
+  val alu_fun    = Output(UInt(ALU_OP_SIZE))
   val wb_en      = Output(UInt(2.W))
   val rf_wen     = Output(Bool())
   val bypassable = Output(Bool())     // instruction's result can be bypassed
@@ -101,15 +101,15 @@ class CtlPath extends Module
         SRA     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRA  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SRL     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRL  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
 
-        ADDIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        SLLIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_SLL  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        SRLIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_SRL  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        SRAIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_SRA  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        ADDW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_ADD  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        SUBW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SUB  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        SLLW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SLL  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        SRLW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRL  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        SRAW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRA  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        ADDIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_ADDW , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        SLLIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_SLLW , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        SRLIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_SRLW , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        SRAIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_SRAW , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        ADDW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_ADDW , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        SUBW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SUBW , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        SLLW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SLLW , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        SRLW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRLW , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        SRAW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRAW , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
 
         JAL     -> List(Y, OP1_X  , OP2_X   , ALU_X    , Y,  CSR.X,     Y,   N,     N,    N,      MCMD_X,   MT_X  ),
         JALR    -> List(Y, OP1_RS1, OP2_IMI , ALU_X    , Y,  CSR.X,     N,   Y,     N,    N,      MCMD_X,   MT_X  ),
