@@ -6,26 +6,26 @@ import chisel3.Bool
 
 import DecodeConsts._
 
-class Bus (val bus_width: Int) extends Bundle {
+class Bus (implicit val conf: RV64IConf) extends Bundle {
   val req  = Input(Bool())
-  val addr = Input(UInt(bus_width.W))
+  val addr = Input(UInt(conf.bus_width.W))
   val data = Input(SInt(32.W))
 }
 
 
-class InstBus (val bus_width: Int) extends Bundle {
+class InstBus (implicit val conf: RV64IConf) extends Bundle {
   val req    = Output(Bool())
-  val addr   = Output(UInt(bus_width.W))
+  val addr   = Output(UInt(conf.bus_width.W))
 
   val ack    = Input(Bool())
   val rddata = Input(SInt(32.W))
 }
 
 
-class DataBus (val bus_width: Int) extends Bundle {
+class DataBus (implicit val conf: RV64IConf) extends Bundle {
   val req    = Output(Bool())
   val cmd    = Output(UInt(2.W))
-  val addr   = Output(UInt(bus_width.W))
+  val addr   = Output(UInt(conf.bus_width.W))
   val size   = Output(UInt(3.W))
   val wrdata = Output(SInt(64.W))
 
@@ -67,28 +67,28 @@ class CpuDebugMonitor extends Bundle {
   val data_bus_rddata = Output(SInt(64.W))
 }
 
-class CpuTopIo (bus_width: Int) extends Bundle {
+class CpuTopIo (implicit val conf: RV64IConf) extends Bundle {
   val run         = Input(Bool())
-  val ext_bus     = new Bus(bus_width)
+  val ext_bus     = new Bus()
   val dbg_monitor = new CpuDebugMonitor()
 }
 
 
-class CpuIo (bus_width: Int) extends Bundle {
+class CpuIo (implicit val conf: RV64IConf) extends Bundle {
   val run      = Input(Bool())
 
-  val inst_bus = new InstBus(bus_width)
-  val data_bus = new DataBus(bus_width)
+  val inst_bus = new InstBus()
+  val data_bus = new DataBus()
 
   val dbg_monitor = new CpuDebugMonitor()
 }
 
 
-class CpuTop (bus_width: Int) extends Module {
-  val io = IO (new CpuTopIo(bus_width))
+class CpuTop (implicit val conf: RV64IConf) extends Module {
+  val io = IO (new CpuTopIo())
 
-  val memory = Module(new Memory(bus_width))
-  val cpu    = Module(new Cpu(bus_width))
+  val memory = Module(new Memory())
+  val cpu    = Module(new Cpu())
 
   cpu.io.run       := io.run
 
@@ -102,20 +102,20 @@ class CpuTop (bus_width: Int) extends Module {
 }
 
 
-class Cpu (bus_width: Int) extends Module {
-  val io = IO (new CpuIo(bus_width))
+class Cpu (implicit val conf: RV64IConf) extends Module {
+  val io = IO (new CpuIo())
 
   val u_cpath   = Module (new CtlPath)
   val u_regs    = Module (new Regs)
   val u_alu     = Module (new Alu)
   val u_csrfile = Module (new CsrFile)
 
-  val if_inst_addr = RegInit(0.U(bus_width.W))
+  val if_inst_addr = RegInit(0.U(conf.bus_width.W))
   val if_inst_en   = RegInit(false.B)
 
   // Get Instruction
   val dec_inst_data  = Reg(UInt(32.W))
-  val dec_inst_addr  = Reg(UInt(bus_width.W))
+  val dec_inst_addr  = Reg(UInt(conf.bus_width.W))
   val dec_inst_valid = Reg(Bool())
 
   val dec_imm_i      = dec_inst_data(31, 20).asSInt
@@ -295,5 +295,6 @@ class Alu extends Module {
 
 
 object CpuTop extends App {
-  chisel3.Driver.execute(args, () => new CpuTop(bus_width = 16))
+  implicit val conf = RV64IConf()
+  chisel3.Driver.execute(args, () => new CpuTop())
 }

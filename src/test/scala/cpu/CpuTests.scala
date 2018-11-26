@@ -116,15 +116,17 @@ class Tester extends ChiselFlatSpec {
     Array("firrtl")
   }
   for ( backendName <- backendNames ) {
+    implicit val conf = RV64IConf()
     "CPU" should s"calculate CPU core (with $backendName)" in {
-      Driver(() => new CpuTop(bus_width = 16), backendName) {
+      Driver(() => new CpuTop(), backendName) {
         c => new CpuTopTests(c)
       } should be (true)
     }
   }
 
   "Basic test using Driver.execute" should "be used as an alternative way to run specification" in {
-    iotesters.Driver.execute(Array(), () => new CpuTop(bus_width = 16)) {
+    implicit val conf = RV64IConf()
+    iotesters.Driver.execute(Array(), () => new CpuTop()) {
       c => new CpuTopTests(c)
     } should be (true)
   }

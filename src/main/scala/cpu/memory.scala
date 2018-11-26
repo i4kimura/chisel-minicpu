@@ -7,22 +7,22 @@ import chisel3.Bool
 import BusConsts._
 import DecodeConsts._
 
-class MemoryIo (bus_width: Int) extends Bundle {
-  val inst_bus = Flipped(new InstBus(bus_width))
-  val data_bus = Flipped(new DataBus(bus_width))
+class MemoryIo (implicit val conf: RV64IConf) extends Bundle {
+  val inst_bus = Flipped(new InstBus())
+  val data_bus = Flipped(new DataBus())
 
-  val ext_bus = new Bus(bus_width)
+  val ext_bus = new Bus()
 }
 
-class Memory (bus_width: Int) extends Module {
-  val io = IO(new MemoryIo(bus_width))
+class Memory (implicit val conf: RV64IConf) extends Module {
+  val io = IO(new MemoryIo())
 
   val inst_rd_data = Wire(Vec(8, UInt(8.W)))
   val data_rd_data = Wire(Vec(8, UInt(8.W)))
 
   for (bank <- 0 until 8) {
 
-    val memory = Mem(math.pow(2, bus_width).toInt , UInt(8.W))
+    val memory = Mem(math.pow(2, conf.bus_width).toInt , UInt(8.W))
 
     val bank_idx = bank.U(3.W)
 
@@ -30,36 +30,36 @@ class Memory (bus_width: Int) extends Module {
       val data_msb = (bank & 0x3)*8+7
       val data_lsb = (bank & 0x3)*8+0
       when(io.ext_bus.addr(0) === bank_idx(2)) {
-        memory(io.ext_bus.addr(bus_width-1, 1)) := io.ext_bus.data(data_msb, data_lsb)
+        memory(io.ext_bus.addr(conf.bus_width-1, 1)) := io.ext_bus.data(data_msb, data_lsb)
       }
     }
 
     /* Inst Bus */
-    inst_rd_data(bank) := memory(io.inst_bus.addr(bus_width-1, 3))
+    inst_rd_data(bank) := memory(io.inst_bus.addr(conf.bus_width-1, 3))
 
     /* Data Bus */
-    data_rd_data(bank) := memory(io.data_bus.addr(bus_width-1, 3))
+    data_rd_data(bank) := memory(io.data_bus.addr(conf.bus_width-1, 3))
 
     val data_msb = bank * 8 + 7
     val data_lsb = bank * 8 + 0
     when(io.data_bus.req & (io.data_bus.cmd === CMD_WR)) {
       switch (io.data_bus.size) {
         is (MT_D) {
-          memory(io.data_bus.addr(bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+          memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
         }
         is (MT_W) {
           if (io.data_bus.addr(2) == bank_idx(2)) {
-            memory(io.data_bus.addr(bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+            memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
           }
         }
         is (MT_H) {
           if (io.data_bus.addr(2,1) == bank_idx(2,1)) {
-            memory(io.data_bus.addr(bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+            memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
           }
         }
         is (MT_B) {
           if (io.data_bus.addr(2,0) == bank_idx(2,0)) {
-            memory(io.data_bus.addr(bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+            memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
           }
         }
       }
