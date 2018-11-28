@@ -70,7 +70,7 @@ class Memory (implicit val conf: RV64IConf) extends Module {
   when(io.inst_bus.req & io.inst_bus.addr(2) === 0.U(1.W)) {
     io.inst_bus.rddata := Cat(inst_rd_data(3), inst_rd_data(2), inst_rd_data(1), inst_rd_data(0)).asSInt
   } .otherwise {
-    printf("PC = %x, data = %x\n", io.inst_bus.addr, Cat(inst_rd_data(7), inst_rd_data(6), inst_rd_data(5), inst_rd_data(4)))
+    // printf("PC = %x, data = %x\n", io.inst_bus.addr, Cat(inst_rd_data(7), inst_rd_data(6), inst_rd_data(5), inst_rd_data(4)))
     io.inst_bus.rddata := Cat(inst_rd_data(7), inst_rd_data(6), inst_rd_data(5), inst_rd_data(4)).asSInt
   }
 

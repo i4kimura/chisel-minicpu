@@ -77,6 +77,7 @@ object DecodeConsts
   val ALU_SLLW = 18.U(ALU_OP_SIZE)
   val ALU_SRLW = 19.U(ALU_OP_SIZE)
   val ALU_SRAW = 20.U(ALU_OP_SIZE)
+  val ALU_COPY2= 21.U(ALU_OP_SIZE)
   val ALU_X    = 0.U(ALU_OP_SIZE)
 
   // Writeback Select Signal
@@ -108,4 +109,18 @@ object DecodeConsts
   val M_FA     = 3.U(3.W)   // flush all caches
   val M_FD     = 4.U(3.W)   // flush data cache
 
+}
+
+
+object Causes {
+  val MisFetch		= 0x0
+  val FetchAccess	= 0x1
+  val IllegalInst	= 0x2
+  val BreakPoint	= 0x3
+  val MisalignLoad	= 0x4
+  val LoadAccess	= 0x5
+  val MisalignStore = 0x6
+  val StoreAccess	= 0x7
+  val UserEcall		= 0x8
+  val MachineEcall	= 0xb
 }

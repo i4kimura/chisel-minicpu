@@ -132,6 +132,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   val dec_jal_en  = u_cpath.io.ctl.jal
   val dec_br_en   = u_cpath.io.ctl.br & (u_alu.io.res === 1.S)
   val dec_mret_en = (u_cpath.io.ctl.wbcsr === CSR.Mret)
+  val dec_ecall_en = (u_cpath.io.ctl.wbcsr === CSR.Inst)
   val dec_jump_en = if_inst_en & (dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en)
 
   if_inst_en := io.run
@@ -141,6 +142,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
     (if_inst_en & dec_jal_en)  -> (dec_inst_addr + dec_imm_j),
     (if_inst_en & dec_br_en)   -> (dec_inst_addr + dec_imm_b_sext),
     (if_inst_en & dec_mret_en) -> u_csrfile.io.mepc,
+    (if_inst_en & dec_ecall_en)-> u_csrfile.io.mtvec,
     (if_inst_en & io.inst_bus.ack) -> (if_inst_addr + 4.U)
   ))
 
@@ -171,11 +173,16 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   u_regs.io.rden0   := true.B
   u_regs.io.rdaddr0 := dec_inst_rs1
   dec_reg_op0       := u_regs.io.rddata0
-
+  
   u_regs.io.rden1   := true.B
   u_regs.io.rdaddr1 := dec_inst_rs2
-  dec_reg_op1       := u_regs.io.rddata1
-
+  when(u_cpath.io.ctl.wbcsr =/= CSR.X) {
+    printf("u_cpath.io.ctrl valid %x\n", u_csrfile.io.rw.rdata.asSInt)
+    dec_reg_op1       := u_csrfile.io.rw.rdata.asSInt
+  } .otherwise {
+    dec_reg_op1       := u_regs.io.rddata1
+  }
+  
   u_alu.io.func := u_cpath.io.ctl.alu_fun
   u_alu.io.op0 := 0.S
   switch(u_cpath.io.ctl.op1_sel) {
@@ -202,6 +209,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   u_csrfile.io.rw.cmd   := u_cpath.io.ctl.wbcsr
   u_csrfile.io.rw.addr  := dec_imm_i.asUInt
   u_csrfile.io.rw.wdata := u_alu.io.res.asUInt
+  u_csrfile.io.ecall_inst := dec_ecall_en
 
   /* Debug-Port */
   io.dbg_monitor.inst_valid := dec_inst_valid
@@ -281,6 +289,7 @@ class Alu extends Module {
     is (ALU_SGE  ) { w_res := Mux(io.op0        >= io.op1,        1.S, 0.S) }
     is (ALU_SGEU ) { w_res := Mux(io.op0.asUInt >= io.op1.asUInt, 1.S, 0.S) }
     is (ALU_COPY1) { w_res := io.op0                                        }
+    is (ALU_COPY2) { w_res := io.op1                                        }
     is (ALU_ADDW ) { w_res := (io.op0(31, 0) + io.op1(31, 0)).asSInt        }
     is (ALU_SUBW ) { w_res := (io.op0(31, 0) - io.op1(31, 0)).asSInt               }
     is (ALU_SLLW ) { w_res := (io.op0(31, 0).asUInt << io.op1(5,0).asUInt).asSInt  }

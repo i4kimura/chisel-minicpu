@@ -13,7 +13,9 @@ class CsrFileIo extends Bundle {
     val rdata = Output(UInt(64.W))
     val wdata = Input(UInt(64.W))
   }
-  val mepc = Output(UInt(64.W))
+  val ecall_inst = Input(Bool())
+  val mepc  = Output(UInt(64.W))
+  val mtvec = Output(UInt(64.W))
 }
 
 
@@ -144,7 +146,7 @@ class CsrFile extends Module
     CsrAddr.misa      -> misa.U,
     CsrAddr.mimpid    -> impid.U,
     CsrAddr.mstatus   -> read_mstatus,
-    /* CsrAddr.mtvec     -> MTVEC.U, */
+    CsrAddr.mtvec     -> reg_mtvec.asUInt(),
     CsrAddr.mip       -> reg_mip.asUInt(),
     CsrAddr.mie       -> reg_mie.asUInt(),
     CsrAddr.mscratch  -> reg_mscratch,
@@ -208,15 +210,25 @@ class CsrFile extends Module
   val insn_ret = system_insn && opcode(2) && priv_sufficient
   val insn_wfi = system_insn && opcode(5) && priv_sufficient
 
-  io.mepc := reg_mepc
+  when(io.ecall_inst) {
+  	printf("Mcause set %x\n", Causes.UserEcall.U)
+    reg_mcause := Causes.UserEcall.U
+  } .elsewhen (decoded_addr(CsrAddr.mcause)) {
+  	reg_mcause := wdata & ((BigInt(1) << (63)) + 31).U /* only implement 5 LSBs and MSB */
+  }
+
+  io.mepc  := reg_mepc
+  io.mtvec := reg_mtvec
 
   when (decoded_addr(CsrAddr.dpc))      { reg_dpc := wdata }
   when (decoded_addr(CsrAddr.dscratch)) { reg_dscratch := wdata }
 
   when (decoded_addr(CsrAddr.mepc))     { reg_mepc := (wdata(63,0) >> 2.U) << 2.U }
   when (decoded_addr(CsrAddr.mscratch)) { reg_mscratch := wdata }
-  when (decoded_addr(CsrAddr.mcause))   { reg_mcause := wdata & ((BigInt(1) << (63)) + 31).U /* only implement 5 LSBs and MSB */ }
   when (decoded_addr(CsrAddr.mtval))    { reg_mtval := wdata(63,0) }
+  when (decoded_addr(CsrAddr.mtvec))    { 
+    reg_mtvec := wdata(63,0)
+  }
   when (decoded_addr(CsrAddr.medeleg))  { reg_medeleg := wdata(63,0) }
 
   private def decodeAny(m: LinkedHashMap[Int,Bits]): Bool = m.map { case(k: Int, _: Bits) => io.rw.addr === k.U(12.W) }.reduce(_||_)
