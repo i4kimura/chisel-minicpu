@@ -120,12 +120,12 @@ class CtlPath extends Module
         BLT     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SLT  , N,  CSR.X,     N,   N,     Y,    N,      MCMD_X,   MT_X  ),
         BLTU    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SLTU , N,  CSR.X,     N,   N,     Y,    N,      MCMD_X,   MT_X  ),
 
-        CSRRWI  -> List(Y, OP1_IMZ, OP2_RS2 , ALU_COPY1, Y,  CSR.Exch , N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        CSRRSI  -> List(Y, OP1_IMZ, OP2_RS2 , ALU_COPY1, Y,  CSR.Set  , N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        CSRRCI  -> List(Y, OP1_IMZ, OP2_RS2 , ALU_COPY1, Y,  CSR.Clear, N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        CSRRW   -> List(Y, OP1_RS1, OP2_RS2 , ALU_COPY1, Y,  CSR.Exch , N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        CSRRS   -> List(Y, OP1_RS1, OP2_RS2 , ALU_COPY1, Y,  CSR.Set  , N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        CSRRC   -> List(Y, OP1_RS1, OP2_RS2 , ALU_COPY1, Y,  CSR.Clear, N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        CSRRWI  -> List(Y, OP1_IMZ, OP2_RS2 , ALU_COPY2, Y,  CSR.Exch , N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        CSRRSI  -> List(Y, OP1_IMZ, OP2_RS2 , ALU_COPY2, Y,  CSR.Set  , N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        CSRRCI  -> List(Y, OP1_IMZ, OP2_RS2 , ALU_COPY2, Y,  CSR.Clear, N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        CSRRW   -> List(Y, OP1_RS1, OP2_RS2 , ALU_COPY2, Y,  CSR.Exch , N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        CSRRS   -> List(Y, OP1_RS1, OP2_RS2 , ALU_COPY2, Y,  CSR.Set  , N,   N,     N,    N,      MCMD_X,   MT_X  ),
+        CSRRC   -> List(Y, OP1_RS1, OP2_RS2 , ALU_COPY2, Y,  CSR.Clear, N,   N,     N,    N,      MCMD_X,   MT_X  ),
 
         ECALL   -> List(Y, OP1_X  , OP2_X  ,  ALU_COPY1, Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
         MRET    -> List(Y, OP1_X  , OP2_X  ,  ALU_COPY1, Y,  CSR.Mret,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
