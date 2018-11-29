@@ -58,6 +58,11 @@ class CpuDebugMonitor extends Bundle {
   val reg_wraddr = Output(UInt(5.W))
   val reg_wrdata = Output(SInt(64.W))
 
+  // ALU
+  val alu_rdata0 = Output(SInt(64.W))
+  val alu_rdata1 = Output(SInt(64.W))
+  val alu_func   = Output(UInt(ALU_OP_SIZE))
+
   // DataBus
   val data_bus_req    = Output(Bool())
   val data_bus_cmd    = Output(UInt(2.W))
@@ -125,8 +130,8 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   val dec_imm_j      = Cat(dec_inst_data(31), dec_inst_data(19,12), dec_inst_data(20), dec_inst_data(30,21), 0.U(1.W))
   val dec_imm_j_sext = Cat(Fill(64-21, dec_imm_j(20)), dec_imm_j, 0.U(1.W))
 
-  val dec_reg_op0 = Wire(SInt(64.W))
-  val dec_reg_op1 = Wire(SInt(64.W))
+  val dec_reg_op0 = Wire(SInt(conf.xlen.W))
+  val dec_reg_op1 = Wire(SInt(conf.xlen.W))
 
   val dec_jalr_en = u_cpath.io.ctl.jalr
   val dec_jal_en  = u_cpath.io.ctl.jal
@@ -173,16 +178,15 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   u_regs.io.rden0   := true.B
   u_regs.io.rdaddr0 := dec_inst_rs1
   dec_reg_op0       := u_regs.io.rddata0
-  
+
   u_regs.io.rden1   := true.B
   u_regs.io.rdaddr1 := dec_inst_rs2
   when(u_cpath.io.ctl.wbcsr =/= CSR.X) {
-    printf("u_cpath.io.ctrl valid %x\n", u_csrfile.io.rw.rdata.asSInt)
     dec_reg_op1       := u_csrfile.io.rw.rdata.asSInt
   } .otherwise {
     dec_reg_op1       := u_regs.io.rddata1
   }
-  
+
   u_alu.io.func := u_cpath.io.ctl.alu_fun
   u_alu.io.op0 := 0.S
   switch(u_cpath.io.ctl.op1_sel) {
@@ -220,6 +224,10 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   io.dbg_monitor.reg_wraddr := u_regs.io.wraddr
   io.dbg_monitor.reg_wrdata := u_regs.io.wrdata
 
+  io.dbg_monitor.alu_rdata0 := u_alu.io.op0
+  io.dbg_monitor.alu_rdata1 := u_alu.io.op1
+  io.dbg_monitor.alu_func   := u_alu.io.func
+
   io.dbg_monitor.data_bus_req    := io.data_bus.req
   io.dbg_monitor.data_bus_cmd    := io.data_bus.cmd
   io.dbg_monitor.data_bus_addr   := io.data_bus.addr
@@ -230,11 +238,11 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
 }
 
 
-class Regs extends Module {
+class Regs (implicit val conf: RV64IConf)  extends Module {
   val io = IO (new RegIo)
 
-  // val r_regs = RegInit( Vec(32, SInt(64.W)).asTypeOf(0.U) )
-  val r_regs = Mem(32, SInt(64.W))
+  // val r_regs = RegInit( Vec(32, SInt(conf.xlen.W)).asTypeOf(0.U) )
+  val r_regs = Mem(32, SInt(conf.xlen.W))
 
   when (io.rden0 && (io.rdaddr0 =/= 0.U(64.W))) {
     io.rddata0 := r_regs(io.rdaddr0)
@@ -254,13 +262,13 @@ class Regs extends Module {
 }
 
 
-class Alu extends Module {
+class Alu (implicit val conf: RV64IConf) extends Module {
   val io = IO (new Bundle {
     val func = Input (UInt(ALU_OP_SIZE))
-    val op0  = Input (SInt(64.W))
-    val op1  = Input (SInt(64.W))
+    val op0  = Input (SInt(conf.xlen.W))
+    val op1  = Input (SInt(conf.xlen.W))
 
-    val res  = Output (SInt(64.W))
+    val res  = Output (SInt(conf.xlen.W))
   })
 
   // when (io.func =/= ALU_X) {
@@ -271,7 +279,7 @@ class Alu extends Module {
   //   printf("] %d\n", io.i_func)
   // }
 
-  val w_res = Wire(SInt(64.W))
+  val w_res = Wire(SInt(conf.xlen.W))
   w_res := 0.S
   switch (io.func) {
     is (ALU_ADD  ) { w_res := io.op0 + io.op1                               }
@@ -297,7 +305,7 @@ class Alu extends Module {
     is (ALU_SRAW ) { w_res := (io.op0(31, 0) >> io.op1(5,0).asUInt).asSInt         }
   }
 
-  val r_res = Reg(SInt(64.W))
+  val r_res = Reg(SInt(conf.xlen.W))
   r_res := w_res
   io.res := w_res
 }
