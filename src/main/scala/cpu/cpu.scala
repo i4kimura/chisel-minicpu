@@ -143,11 +143,11 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   if_inst_en := io.run
 
   if_inst_addr := MuxCase (0.U, Array (
-    (if_inst_en & dec_jalr_en) -> dec_reg_op0.asUInt,
-    (if_inst_en & dec_jal_en)  -> (dec_inst_addr + dec_imm_j),
-    (if_inst_en & dec_br_en)   -> (dec_inst_addr + dec_imm_b_sext),
-    (if_inst_en & dec_mret_en) -> u_csrfile.io.mepc,
-    (if_inst_en & dec_ecall_en)-> u_csrfile.io.mtvec,
+    (if_inst_en & dec_jalr_en)     -> dec_reg_op0.asUInt,
+    (if_inst_en & dec_jal_en)      -> (dec_inst_addr + dec_imm_j),
+    (if_inst_en & dec_br_en)       -> (dec_inst_addr + dec_imm_b_sext),
+    (if_inst_en & dec_mret_en)     -> u_csrfile.io.mepc,
+    (if_inst_en & dec_ecall_en)    -> u_csrfile.io.mtvec,
     (if_inst_en & io.inst_bus.ack) -> (if_inst_addr + 4.U)
   ))
 
@@ -212,7 +212,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   /* CSR Port */
   u_csrfile.io.rw.cmd   := u_cpath.io.ctl.wbcsr
   u_csrfile.io.rw.addr  := dec_imm_i.asUInt
-  u_csrfile.io.rw.wdata := u_alu.io.res.asUInt
+  u_csrfile.io.rw.wdata := u_regs.io.rddata0.asUInt
   u_csrfile.io.ecall_inst := dec_ecall_en
 
   /* Debug-Port */
