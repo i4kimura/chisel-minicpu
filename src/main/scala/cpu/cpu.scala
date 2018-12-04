@@ -288,6 +288,9 @@ class Alu (implicit val conf: RV64IConf) extends Module {
     is (ALU_MULHU ) { w_mul_xlen2 := (io.op0.asUInt * io.op1.asUInt).asSInt }
   }
 
+  val w_mul_xlen = Wire(SInt((conf.xlen).W))
+  w_mul_xlen := io.op0(31, 0).asSInt * io.op1(31, 0).asSInt
+
   val w_res = Wire(SInt(conf.xlen.W))
   w_res := 0.S
   switch (io.func) {
@@ -316,6 +319,7 @@ class Alu (implicit val conf: RV64IConf) extends Module {
     is (ALU_MULH  ) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }
     is (ALU_MULHSU) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }
     is (ALU_MULHU ) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }
+    is (ALU_MULW  ) { w_res := w_mul_xlen(31, 0).asSInt                       }
   }
 
   val r_res = Reg(SInt(conf.xlen.W))

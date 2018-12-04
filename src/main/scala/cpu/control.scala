@@ -76,15 +76,16 @@ class CtlPath extends Module
         SW      -> List(Y, OP1_RS1, OP2_IMS , ALU_ADD   , N,  CSR.X,     N,   N,     N,    Y,      MCMD_WR,  MT_W  ),
         SB      -> List(Y, OP1_RS1, OP2_IMS , ALU_ADD   , N,  CSR.X,     N,   N,     N,    Y,      MCMD_WR,  MT_B  ),
         SH      -> List(Y, OP1_RS1, OP2_IMS , ALU_ADD   , N,  CSR.X,     N,   N,     N,    Y,      MCMD_WR,  MT_H  ),
-						        
+
         AUIPC   -> List(Y, OP1_IMU, OP2_PC  , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         LUI     -> List(Y, OP1_IMU, OP2_X   , ALU_COPY1 , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-						        
+
         MUL     -> List(Y, OP1_RS1, OP2_RS2 , ALU_MUL   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         MULH    -> List(Y, OP1_RS1, OP2_RS2 , ALU_MULH  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         MULHSU  -> List(Y, OP1_RS1, OP2_RS2 , ALU_MULHSU, Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         MULHU   -> List(Y, OP1_RS1, OP2_RS2 , ALU_MULHU , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-						        
+        MULW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_MULW  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
+
         ADDI    -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         ANDI    -> List(Y, OP1_RS1, OP2_IMI , ALU_AND   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         ORI     -> List(Y, OP1_RS1, OP2_IMI , ALU_OR    , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
@@ -94,7 +95,7 @@ class CtlPath extends Module
         SLLI    -> List(Y, OP1_RS1, OP2_IMI , ALU_SLL   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SRAI    -> List(Y, OP1_RS1, OP2_IMI , ALU_SRA   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SRLI    -> List(Y, OP1_RS1, OP2_IMI , ALU_SRL   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-						        
+
         SLL     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SLL   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         ADD     -> List(Y, OP1_RS1, OP2_RS2 , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SUB     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SUB   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
@@ -105,7 +106,7 @@ class CtlPath extends Module
         XOR     -> List(Y, OP1_RS1, OP2_RS2 , ALU_XOR   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SRA     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRA   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SRL     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRL   , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-						        
+
         ADDIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_ADDW  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SLLIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_SLLW  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SRLIW   -> List(Y, OP1_RS1, OP2_IMI , ALU_SRLW  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
@@ -115,7 +116,7 @@ class CtlPath extends Module
         SLLW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SLLW  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SRLW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRLW  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         SRAW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRAW  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-						        
+
         JAL     -> List(Y, OP1_X  , OP2_X   , ALU_X     , Y,  CSR.X,     Y,   N,     N,    N,      MCMD_X,   MT_X  ),
         JALR    -> List(Y, OP1_RS1, OP2_IMI , ALU_X     , Y,  CSR.X,     N,   Y,     N,    N,      MCMD_X,   MT_X  ),
         BEQ     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SEQ   , N,  CSR.X,     N,   N,     Y,    N,      MCMD_X,   MT_X  ),
@@ -124,20 +125,20 @@ class CtlPath extends Module
         BGEU    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SGEU  , N,  CSR.X,     N,   N,     Y,    N,      MCMD_X,   MT_X  ),
         BLT     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SLT   , N,  CSR.X,     N,   N,     Y,    N,      MCMD_X,   MT_X  ),
         BLTU    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SLTU  , N,  CSR.X,     N,   N,     Y,    N,      MCMD_X,   MT_X  ),
-						        
+
         CSRRWI  -> List(Y, OP1_IMZ, OP2_RS2 , ALU_COPY2 , Y,  CSR.Exch , N,   N,     N,    N,      MCMD_X,   MT_X  ),
         CSRRSI  -> List(Y, OP1_IMZ, OP2_RS2 , ALU_COPY2 , Y,  CSR.Set  , N,   N,     N,    N,      MCMD_X,   MT_X  ),
         CSRRCI  -> List(Y, OP1_IMZ, OP2_RS2 , ALU_COPY2 , Y,  CSR.Clear, N,   N,     N,    N,      MCMD_X,   MT_X  ),
         CSRRW   -> List(Y, OP1_RS1, OP2_RS2 , ALU_COPY2 , Y,  CSR.Exch , N,   N,     N,    N,      MCMD_X,   MT_X  ),
         CSRRS   -> List(Y, OP1_RS1, OP2_RS2 , ALU_COPY2 , Y,  CSR.Set  , N,   N,     N,    N,      MCMD_X,   MT_X  ),
         CSRRC   -> List(Y, OP1_RS1, OP2_RS2 , ALU_COPY2 , Y,  CSR.Clear, N,   N,     N,    N,      MCMD_X,   MT_X  ),
-						        
+
         ECALL   -> List(Y, OP1_X  , OP2_X  ,  ALU_COPY1 , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
         MRET    -> List(Y, OP1_X  , OP2_X  ,  ALU_COPY1 , Y,  CSR.Mret,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
         DRET    -> List(Y, OP1_X  , OP2_X  ,  ALU_COPY1 , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
         EBREAK  -> List(Y, OP1_X  , OP2_X  ,  ALU_COPY1 , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
         WFI     -> List(Y, OP1_X  , OP2_X  ,  ALU_COPY1 , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ), // implemented as a NOP
-						        
+
         FENCE_I -> List(Y, OP1_X  , OP2_X  ,  ALU_X     , N,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
         FENCE   -> List(Y, OP1_X  , OP2_X  ,  ALU_X     , N,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  )
           // we are already sequentially consistent, so no need to honor the fence instruction

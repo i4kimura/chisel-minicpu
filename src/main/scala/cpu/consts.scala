@@ -82,6 +82,7 @@ object DecodeConsts
   val ALU_MULH   = 23.U(ALU_OP_SIZE)
   val ALU_MULHSU = 24.U(ALU_OP_SIZE)
   val ALU_MULHU  = 25.U(ALU_OP_SIZE)
+  val ALU_MULW   = 26.U(ALU_OP_SIZE)
   val ALU_X      = 0.U(ALU_OP_SIZE)
 
   // Writeback Select Signal
