@@ -110,6 +110,9 @@ class CpuTop (implicit val conf: RV64IConf) extends Module {
 class Cpu (implicit val conf: RV64IConf) extends Module {
   val io = IO (new CpuIo())
 
+  val cycle = RegInit(0.U(32.W))
+  cycle := cycle + 1.U  
+
   val u_cpath   = Module (new CtlPath)
   val u_regs    = Module (new Regs)
   val u_alu     = Module (new Alu)
@@ -133,23 +136,46 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   val dec_reg_op0 = Wire(SInt(conf.xlen.W))
   val dec_reg_op1 = Wire(SInt(conf.xlen.W))
 
-  val dec_jalr_en = u_cpath.io.ctl.jalr
-  val dec_jal_en  = u_cpath.io.ctl.jal
-  val dec_br_en   = u_cpath.io.ctl.br & (u_alu.io.res === 1.S)
-  val dec_mret_en = (u_cpath.io.ctl.wbcsr === CSR.Mret)
+  val dec_jalr_en  = u_cpath.io.ctl.jalr
+  val dec_jal_en   = u_cpath.io.ctl.jal
+  val dec_br_en    = u_cpath.io.ctl.br & (u_alu.io.res === 1.S)
+  val dec_mret_en  = (u_cpath.io.ctl.wbcsr === CSR.Mret)
   val dec_ecall_en = (u_cpath.io.ctl.wbcsr === CSR.Inst)
-  val dec_jump_en = if_inst_en & (dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en)
+  val dec_jump_en  = dec_inst_valid & (dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en)
 
   if_inst_en := io.run
 
   if_inst_addr := MuxCase (0.U, Array (
-    (if_inst_en & dec_jalr_en)     -> dec_reg_op0.asUInt,
-    (if_inst_en & dec_jal_en)      -> (dec_inst_addr + dec_imm_j),
-    (if_inst_en & dec_br_en)       -> (dec_inst_addr + dec_imm_b_sext),
-    (if_inst_en & dec_mret_en)     -> u_csrfile.io.mepc,
-    (if_inst_en & dec_ecall_en)    -> u_csrfile.io.mtvec,
-    (if_inst_en & io.inst_bus.ack) -> (if_inst_addr + 4.U)
+    (dec_inst_valid & dec_jalr_en)     -> dec_reg_op0.asUInt,
+    (dec_inst_valid & dec_jal_en)      -> (dec_inst_addr + dec_imm_j),
+    (dec_inst_valid & dec_br_en)       -> (dec_inst_addr + dec_imm_b_sext),
+    (dec_inst_valid & dec_mret_en)     -> u_csrfile.io.mepc,
+    (dec_inst_valid & dec_ecall_en)    -> u_csrfile.io.mtvec,
+    (if_inst_en     & io.inst_bus.ack) -> (if_inst_addr + 4.U)
   ))
+
+  when (if_inst_en & dec_jalr_en) {
+    printf("%d : JALR is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  } 
+  when (if_inst_en & dec_jal_en) {
+    printf("%d : JAL  is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  }
+  when (if_inst_en & dec_br_en) {
+    printf("%d : BR   is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  }
+  when (if_inst_en & dec_mret_en) {
+    printf("%d : MRET is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  }
+  when (if_inst_en & dec_ecall_en) {
+    printf("%d : ECAL is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  }
+
+  val r_dec_jalr_en = Reg(Bool())
+  r_dec_jalr_en := if_inst_en & dec_jalr_en
+  when (r_dec_jalr_en) {
+    printf("JALR is done enable %x, \n", if_inst_addr)
+  }
+
 
   io.inst_bus.req  := if_inst_en
   io.inst_bus.addr := if_inst_addr

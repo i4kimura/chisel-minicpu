@@ -64,8 +64,8 @@ class CtlPath extends Module
   val csignals =
     ListLookup(io.inst,
                    List(N, OP1_X  ,  OP2_X  , ALU_X     , N  ,CSR.X,     N,   N,     N,    N,      MCMD_X ,  MT_X  ),
-      Array(      /* val  | op1   |   op2     |  ALU    | WB |WB_CSR    | JAL | JALR | BR | MEM_V | MEM_CMD | MEM_T */
-                  /* inst |  sel  |    sel    |   fcn   |    |          |     |      |    |       |         |       */
+      Array(      /* val  | op1   |   op2     |  ALU    | WB |WB_CSR    |JAL | JALR | BR | MEM_V | MEM_CMD | MEM_T */
+                  /* inst |  sel  |    sel    |   fcn   |    |          |    |      |    |       |         |       */
         LD      -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    Y,      MCMD_RD,  MT_D  ),
         LW      -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    Y,      MCMD_RD,  MT_W  ),
         LB      -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    Y,      MCMD_RD,  MT_B  ),
