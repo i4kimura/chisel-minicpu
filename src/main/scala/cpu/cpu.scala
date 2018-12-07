@@ -218,10 +218,10 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
 
   u_alu.io.func := u_cpath.io.ctl.alu_fun
   u_alu.io.op0 := 0.S
-  switch(u_cpath.io.ctl.op1_sel) {
-    is (OP1_RS1) { u_alu.io.op0 := dec_reg_op0 }
-    is (OP1_IMU) { u_alu.io.op0 := Cat(dec_inst_data(31, 12), Fill(12,0.U)).asSInt }
-    is (OP1_IMZ) { u_alu.io.op0 := Cat(Fill(27,0.U), dec_inst_data(19,15)).asSInt }
+  switch(u_cpath.io.ctl.op0_sel) {
+    is (OP0_RS1) { u_alu.io.op0 := dec_reg_op0 }
+    is (OP0_IMU) { u_alu.io.op0 := Cat(dec_inst_data(31, 12), Fill(12,0.U)).asSInt }
+    is (OP0_IMZ) { u_alu.io.op0 := Cat(Fill(27,0.U), dec_inst_data(19,15)).asSInt }
   }
 
   u_alu.io.op1 := 0.S
