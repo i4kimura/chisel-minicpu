@@ -225,11 +225,11 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   }
 
   u_alu.io.op1 := 0.S
-  switch(u_cpath.io.ctl.op2_sel) {
-    is (OP2_PC ) { u_alu.io.op1 := dec_inst_addr.asSInt }
-    is (OP2_RS2) { u_alu.io.op1 := dec_reg_op1 }
-    is (OP2_IMI) { u_alu.io.op1 := Cat(Fill(20,dec_imm_i(11)), dec_imm_i).asSInt }
-    is (OP2_IMS) { u_alu.io.op1 := Cat(Fill(20,dec_imm_s(11)), dec_imm_s).asSInt }
+  switch(u_cpath.io.ctl.op1_sel) {
+    is (OP1_PC ) { u_alu.io.op1 := dec_inst_addr.asSInt }
+    is (OP1_RS2) { u_alu.io.op1 := dec_reg_op1 }
+    is (OP1_IMI) { u_alu.io.op1 := Cat(Fill(20,dec_imm_i(11)), dec_imm_i).asSInt }
+    is (OP1_IMS) { u_alu.io.op1 := Cat(Fill(20,dec_imm_s(11)), dec_imm_s).asSInt }
   }
 
   u_regs.io.wren   := dec_inst_valid & u_cpath.io.ctl.wb_en

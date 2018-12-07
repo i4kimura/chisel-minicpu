@@ -45,11 +45,12 @@ object DecodeConsts
   def OP0_X   = 0.U(OP0_SIZE)
 
   // RS2 Operand Select Signal
-  def OP2_RS2 = 0.U(2.W) // Register Source #2
-  def OP2_IMI = 1.U(2.W) // immediate, I-type
-  def OP2_IMS = 2.U(2.W) // immediate, S-type
-  def OP2_PC  = 3.U(2.W) // PC
-  def OP2_X   = 0.U(2.W)
+  val OP1_SIZE = 2.W
+  def OP1_RS2 = 0.U(OP1_SIZE) // Register Source #2
+  def OP1_IMI = 1.U(OP1_SIZE) // immediate, I-type
+  def OP1_IMS = 2.U(OP1_SIZE) // immediate, S-type
+  def OP1_PC  = 3.U(OP1_SIZE) // PC
+  def OP1_X   = 0.U(OP1_SIZE)
 
   // ALU Operation Signal
   val ALU_OP_SIZE = 5.W
