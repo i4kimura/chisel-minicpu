@@ -41,8 +41,8 @@ class CtrlSignals extends Bundle()
   val br         = Output(Bool())
 
   val mem_v    = Output(Bool())
-  val mem_cmd  = Output(UInt(2.W))
-  val mem_type = Output(UInt(3.W))
+  val mem_cmd  = Output(UInt(MCMD_SIZE))
+  val mem_type = Output(UInt(MT_SIZE))
 
   val exception = Output(Bool())
 }

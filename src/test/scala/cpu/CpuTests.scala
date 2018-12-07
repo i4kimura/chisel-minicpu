@@ -63,9 +63,14 @@ class CpuTopTests(c: CpuTop, hexname: String, pipename: String) extends PeekPoke
         val alu_func          = peek (cpu_tb.io.dbg_monitor.alu_func)
 
         if (reg_wren == 1) {
-          writer.printf("x%02d<=0x%016x (%2d, %016x, %016x)".format(reg_wraddr, reg_wrdata, alu_func, alu_rdata0, alu_rdata1))
+          writer.printf("x%02d<=0x%016x ".format(reg_wraddr, reg_wrdata))
         } else {
-          writer.printf("                                                                ")
+          writer.printf("                        ")
+        }
+        if (alu_func != 0) {
+          writer.printf("(%2d, %016x, %016x)".format(alu_func, alu_rdata0, alu_rdata1))
+        } else {
+          writer.printf("                                        ")
         }
 
         val data_bus_req    = peek(cpu_tb.io.dbg_monitor.data_bus_req)

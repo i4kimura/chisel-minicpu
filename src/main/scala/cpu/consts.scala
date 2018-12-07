@@ -19,24 +19,6 @@ object DecodeConsts
   val Y      = true.B
   val N      = false.B
 
-  // PC Select Signal
-  val PC_4   = 0.U(3.W)  // PC + 4
-  val PC_BR  = 1.U(3.W)  // branch_target
-  val PC_J   = 2.U(3.W)  // jump_target
-  val PC_JR  = 3.U(3.W)  // jump_reg_target
-  val PC_EXC = 4.U(3.W)  // exception
-
-  // Branch Type
-  val BR_N   = 0.U(4.W)  // Next
-  val BR_NE  = 1.U(4.W)  // Branch on NotEqual
-  val BR_EQ  = 2.U(4.W)  // Branch on Equal
-  val BR_GE  = 3.U(4.W)  // Branch on Greater/Equal
-  val BR_GEU = 4.U(4.W)  // Branch on Greater/Equal Unsigned
-  val BR_LT  = 5.U(4.W)  // Branch on Less Than
-  val BR_LTU = 6.U(4.W)  // Branch on Less Than Unsigned
-  val BR_J   = 7.U(4.W)  // Jump
-  val BR_JR  = 8.U(4.W)  // Jump Register
-
   // RS1 Operand Select Signal
   val OP0_SIZE = 2.W
   def OP0_RS1 = 0.U(OP0_SIZE) // Register Source #1
@@ -82,13 +64,6 @@ object DecodeConsts
   def ALU_MULW   = 26.U(ALU_OP_SIZE)
   def ALU_X      = 0.U(ALU_OP_SIZE)
 
-  // Writeback Select Signal
-  val WB_ALU  = 0.U(2.W)
-  val WB_MEM  = 1.U(2.W)
-  val WB_PC4  = 2.U(2.W)
-  val WB_CSR  = 3.U(2.W)
-  val WB_X    = 0.U(2.W)
-
   // Memory Mask Type Signal
   val MT_SIZE = 3.W
   def MT_B   = 1.U(MT_SIZE)
@@ -101,18 +76,11 @@ object DecodeConsts
   def MT_X   = 0.U(MT_SIZE)
 
   // Memory Functions (read, write, fence)
-  val MCMD_WR = 1.U(2.W)
-  val MCMD_RD = 2.U(2.W)
-  val MCMD_FE = 3.U(2.W)
-  val MCMD_X  = 0.U(2.W)
-
-  // Cache Flushes & Sync Primitives
-  val M_N      = 0.U(3.W)
-  val M_SI     = 1.U(3.W)   // synch instruction stream
-  val M_SD     = 2.U(3.W)   // synch data stream
-  val M_FA     = 3.U(3.W)   // flush all caches
-  val M_FD     = 4.U(3.W)   // flush data cache
-
+  val MCMD_SIZE = 2.W
+  def MCMD_WR = 1.U(MCMD_SIZE)
+  def MCMD_RD = 2.U(MCMD_SIZE)
+  def MCMD_FE = 3.U(MCMD_SIZE)
+  def MCMD_X  = 0.U(MCMD_SIZE)
 }
 
 

@@ -146,6 +146,11 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
 
   val mem_rdval = Wire(SInt(conf.xlen.W))
 
+  val rd_ctrl_mem_v    = RegInit(false.B)
+  val rd_ctrl_mem_cmd  = RegInit(0.U(MCMD_SIZE))
+  val rd_ctrl_mem_type = RegInit(0.U(MT_SIZE))
+  val rd_rdata_op1     = RegInit(0.S(conf.xlen.W))
+
   if_inst_en := io.run
 
   if_inst_addr := MuxCase (0.U, Array (
@@ -183,11 +188,11 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   io.inst_bus.req  := if_inst_en
   io.inst_bus.addr := if_inst_addr
 
-  io.data_bus.req    := u_cpath.io.ctl.mem_v
-  io.data_bus.cmd    := u_cpath.io.ctl.mem_cmd
-  io.data_bus.size   := u_cpath.io.ctl.mem_type
+  io.data_bus.req    := rd_ctrl_mem_v
+  io.data_bus.cmd    := rd_ctrl_mem_cmd
+  io.data_bus.size   := rd_ctrl_mem_type
   io.data_bus.addr   := u_alu.io.res.asUInt
-  io.data_bus.wrdata := dec_reg_op1
+  io.data_bus.wrdata := rd_rdata_op1
 
   when  (if_inst_en & io.inst_bus.ack) {
     dec_inst_data := io.inst_bus.rddata.asUInt
@@ -216,21 +221,39 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
     dec_reg_op1       := u_regs.io.rddata1
   }
 
-  u_alu.io.func := u_cpath.io.ctl.alu_fun
-  u_alu.io.op0 := 0.S
+  val rd_alu_func = Reg (UInt(ALU_OP_SIZE))
+  val rd_alu_op0  = Reg (SInt(conf.xlen.W))
+  val rd_alu_op1  = Reg (SInt(conf.xlen.W))
+
+  rd_alu_func := u_cpath.io.ctl.alu_fun
   switch(u_cpath.io.ctl.op0_sel) {
-    is (OP0_RS1) { u_alu.io.op0 := dec_reg_op0 }
-    is (OP0_IMU) { u_alu.io.op0 := Cat(dec_inst_data(31, 12), Fill(12,0.U)).asSInt }
-    is (OP0_IMZ) { u_alu.io.op0 := Cat(Fill(27,0.U), dec_inst_data(19,15)).asSInt }
+    is (OP0_RS1) { rd_alu_op0 := dec_reg_op0 }
+    is (OP0_IMU) { rd_alu_op0 := Cat(dec_inst_data(31, 12), Fill(12,0.U)).asSInt }
+    is (OP0_IMZ) { rd_alu_op0 := Cat(Fill(27,0.U), dec_inst_data(19,15)).asSInt }
   }
 
-  u_alu.io.op1 := 0.S
   switch(u_cpath.io.ctl.op1_sel) {
-    is (OP1_PC ) { u_alu.io.op1 := dec_inst_addr.asSInt }
-    is (OP1_RS2) { u_alu.io.op1 := dec_reg_op1 }
-    is (OP1_IMI) { u_alu.io.op1 := Cat(Fill(20,dec_imm_i(11)), dec_imm_i).asSInt }
-    is (OP1_IMS) { u_alu.io.op1 := Cat(Fill(20,dec_imm_s(11)), dec_imm_s).asSInt }
+    is (OP1_PC ) { rd_alu_op1 := dec_inst_addr.asSInt }
+    is (OP1_RS2) { rd_alu_op1 := dec_reg_op1 }
+    is (OP1_IMI) { rd_alu_op1 := Cat(Fill(20,dec_imm_i(11)), dec_imm_i).asSInt }
+    is (OP1_IMS) { rd_alu_op1 := Cat(Fill(20,dec_imm_s(11)), dec_imm_s).asSInt }
   }
+
+  /*!
+   * Register Read Pipeline
+   */
+  rd_ctrl_mem_v      := u_cpath.io.ctl.mem_v
+  rd_ctrl_mem_cmd    := u_cpath.io.ctl.mem_cmd
+  rd_ctrl_mem_type   := u_cpath.io.ctl.mem_type
+
+  rd_rdata_op1 := dec_reg_op1
+
+  /*!
+   * ALU Input
+   */
+  u_alu.io.func := rd_alu_func
+  u_alu.io.op0  := rd_alu_op0
+  u_alu.io.op1  := rd_alu_op1
 
   u_regs.io.wren   := dec_inst_valid & u_cpath.io.ctl.wb_en
   u_regs.io.wraddr := dec_inst_rd
