@@ -113,10 +113,11 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   val cycle = RegInit(0.U(32.W))
   cycle := cycle + 1.U
 
-  val u_cpath   = Module (new CtlPath)
-  val u_regs    = Module (new Regs)
-  val u_alu     = Module (new Alu)
-  val u_csrfile = Module (new CsrFile)
+  val u_cpath    = Module (new CtlPath)
+  val u_regs     = Module (new Regs)
+  val u_alu      = Module (new Alu)
+  val u_mem_sext = Module (new SExt)
+  val u_csrfile  = Module (new CsrFile)
 
   val if_inst_addr = RegInit(0.U(conf.bus_width.W))
   val if_inst_en   = RegInit(false.B)
@@ -142,6 +143,8 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   val dec_mret_en  = (u_cpath.io.ctl.wbcsr === CSR.Mret)
   val dec_ecall_en = (u_cpath.io.ctl.wbcsr === CSR.Inst)
   val dec_jump_en  = dec_inst_valid & (dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en)
+
+  val mem_rdval = Wire(SInt(conf.xlen.W))
 
   if_inst_en := io.run
 
@@ -231,9 +234,17 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
 
   u_regs.io.wren   := dec_inst_valid & u_cpath.io.ctl.wb_en
   u_regs.io.wraddr := dec_inst_rd
-  u_regs.io.wrdata := Mux ((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y), dec_inst_addr.asSInt + 4.S,
-                      Mux (u_cpath.io.ctl.mem_cmd =/= MCMD_X, io.data_bus.rddata,
-                      u_alu.io.res))
+  when ((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y)) {
+    u_regs.io.wrdata := dec_inst_addr.asSInt + 4.S
+  } .elsewhen (u_cpath.io.ctl.mem_cmd =/= MCMD_X) {
+    u_regs.io.wrdata := mem_rdval
+  } .otherwise {
+    u_regs.io.wrdata := u_alu.io.res
+  }
+
+  u_mem_sext.io.in_val   := io.data_bus.rddata
+  u_mem_sext.io.ext_type := u_cpath.io.ctl.mem_type
+  mem_rdval              := u_mem_sext.io.out_val
 
   /* CSR Port */
   u_csrfile.io.rw.cmd   := u_cpath.io.ctl.wbcsr
@@ -351,6 +362,27 @@ class Alu (implicit val conf: RV64IConf) extends Module {
   val r_res = Reg(SInt(conf.xlen.W))
   r_res := w_res
   io.res := w_res
+}
+
+
+class SExt (implicit val conf: RV64IConf) extends Module {
+  val io = IO (new Bundle {
+    val in_val   = Input(SInt(conf.xlen.W))
+    val ext_type = Input(UInt(MT_SIZE))
+
+    val out_val = Output(SInt(conf.xlen.W))
+  })
+
+  io.out_val := io.in_val
+  switch (io.ext_type) {
+    is (MT_B ) { io.out_val := Cat(Fill(conf.xlen-8 , io.in_val( 7)), io.in_val( 7, 0)).asSInt }
+    is (MT_BU) { io.out_val := Cat(Fill(conf.xlen-8 , 0.U          ), io.in_val( 7, 0)).asSInt }
+    is (MT_H ) { io.out_val := Cat(Fill(conf.xlen-16, io.in_val(15)), io.in_val(15, 0)).asSInt }
+    is (MT_HU) { io.out_val := Cat(Fill(conf.xlen-16, 0.U          ), io.in_val(15, 0)).asSInt }
+    is (MT_W ) { io.out_val := Cat(Fill(conf.xlen-32, io.in_val(31)), io.in_val(31, 0)).asSInt }
+    is (MT_WU) { io.out_val := Cat(Fill(conf.xlen-32, 0.U          ), io.in_val(31, 0)).asSInt }
+    is (MT_D ) { io.out_val := io.in_val                                                       }
+  }
 }
 
 

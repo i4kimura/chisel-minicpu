@@ -87,6 +87,12 @@ class Memory (implicit val conf: RV64IConf) extends Module {
         data_rd_data(io.data_bus.addr(2) * 4.U + 1.U),
         data_rd_data(io.data_bus.addr(2) * 4.U + 0.U)).asSInt
     }
+    is(MT_WU) {
+      io.data_bus.rddata := Cat(Fill(32, 0.U(1.W)), data_rd_data(io.data_bus.addr(2) * 4.U + 3.U),
+        data_rd_data(io.data_bus.addr(2) * 4.U + 2.U),
+        data_rd_data(io.data_bus.addr(2) * 4.U + 1.U),
+        data_rd_data(io.data_bus.addr(2) * 4.U + 0.U)).asSInt
+    }
     is(MT_HU) {
       val target_data = Cat(data_rd_data(io.data_bus.addr(2,1) * 2.U + 1.U), data_rd_data(io.data_bus.addr(2,1) * 2.U + 0.U))
       io.data_bus.rddata := Cat(0.U(48.W), target_data).asSInt

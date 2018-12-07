@@ -68,6 +68,7 @@ class CtlPath extends Module
                   /* inst |  sel  |    sel    |   fcn   |    |          |    |      |    |       |         |       */
         LD      -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    Y,      MCMD_RD,  MT_D  ),
         LW      -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    Y,      MCMD_RD,  MT_W  ),
+        LWU     -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    Y,      MCMD_RD,  MT_WU ),
         LB      -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    Y,      MCMD_RD,  MT_B  ),
         LBU     -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    Y,      MCMD_RD,  MT_BU ),
         LH      -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   N,     N,    Y,      MCMD_RD,  MT_H  ),

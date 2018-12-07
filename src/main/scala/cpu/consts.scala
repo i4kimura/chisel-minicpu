@@ -93,13 +93,15 @@ object DecodeConsts
   val WB_X    = 0.U(2.W)
 
   // Memory Mask Type Signal
-  val MT_B   = 1.U(3.W)
-  val MT_BU  = 2.U(3.W)
-  val MT_H   = 3.U(3.W)
-  val MT_HU  = 4.U(3.W)
-  val MT_W   = 5.U(3.W)
-  val MT_D   = 6.U(3.W)
-  val MT_X   = 0.U(3.W)
+  val MT_SIZE = 3.W
+  val MT_B   = 1.U(MT_SIZE)
+  val MT_BU  = 2.U(MT_SIZE)
+  val MT_H   = 3.U(MT_SIZE)
+  val MT_HU  = 4.U(MT_SIZE)
+  val MT_W   = 5.U(MT_SIZE)
+  val MT_WU  = 6.U(MT_SIZE)
+  val MT_D   = 7.U(MT_SIZE)
+  val MT_X   = 0.U(MT_SIZE)
 
   // Memory Functions (read, write, fence)
   val MCMD_WR = 1.U(2.W)
