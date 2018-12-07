@@ -49,7 +49,12 @@ class RegIo extends Bundle {
 }
 
 
-class CpuDebugMonitor extends Bundle {
+class CpuDebugMonitor(implicit val conf: RV64IConf) extends Bundle {
+  val inst_fetch_req    = Output(Bool())
+  val inst_fetch_addr   = Output(UInt(conf.bus_width.W))
+  val inst_fetch_ack    = Output(Bool())
+  val inst_fetch_rddata = Output(SInt(32.W))
+
   val inst_valid = Output(Bool())
   val inst_addr  = Output(UInt(32.W))
   val inst_hex   = Output(UInt(32.W))
@@ -75,7 +80,7 @@ class CpuDebugMonitor extends Bundle {
 class CpuTopIo (implicit val conf: RV64IConf) extends Bundle {
   val run         = Input(Bool())
   val ext_bus     = new Bus()
-  val dbg_monitor = new CpuDebugMonitor()
+  val dbg_monitor = new CpuDebugMonitor()(conf)
 }
 
 
@@ -85,7 +90,7 @@ class CpuIo (implicit val conf: RV64IConf) extends Bundle {
   val inst_bus = new InstBus()
   val data_bus = new DataBus()
 
-  val dbg_monitor = new CpuDebugMonitor()
+  val dbg_monitor = new CpuDebugMonitor()(conf)
 }
 
 
@@ -125,7 +130,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   // Get Instruction
   val dec_inst_data  = Reg(UInt(32.W))
   val dec_inst_addr  = Reg(UInt(conf.bus_width.W))
-  val dec_inst_valid = Reg(Bool())
+  val dec_inst_valid = RegInit(false.B)
 
   val dec_imm_i      = dec_inst_data(31, 20).asSInt
   val dec_imm_b      = Cat(dec_inst_data(31), dec_inst_data(7), dec_inst_data(30,25), dec_inst_data(11,8))
@@ -146,6 +151,34 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
 
   val mem_rdval = Wire(SInt(conf.xlen.W))
 
+  val rd_inst_valid = RegInit(false.B)
+  val rd_inst_data  = RegInit(0.U(32.W))
+  val rd_inst_addr  = RegInit(0.U(conf.bus_width.W))
+
+  val rd_jalr_en   = RegInit(false.B)
+  val rd_jal_en    = RegInit(false.B)
+  val rd_br_en     = RegInit(false.B)
+  val rd_mret_en   = RegInit(false.B)
+  val rd_ecall_en  = RegInit(false.B)
+  val rd_jump_en   = Wire(Bool())
+
+  val rd_imm_b_sext = RegInit(0.U(conf.xlen.W))
+  val rd_imm_j      = RegInit(0.U(conf.xlen.W))
+
+  rd_inst_valid := dec_inst_valid
+  rd_inst_data  := dec_inst_data
+  rd_inst_addr  := dec_inst_addr
+
+  rd_jalr_en  := dec_jalr_en
+  rd_jal_en   := dec_jal_en
+  rd_br_en    := dec_br_en
+  rd_mret_en  := dec_mret_en
+  rd_ecall_en := dec_ecall_en
+  rd_jump_en  := rd_inst_valid & (rd_jalr_en | rd_jal_en | rd_br_en | rd_mret_en)
+
+  rd_imm_b_sext := dec_imm_b_sext
+  rd_imm_j      := dec_imm_j
+
   val rd_ctrl_mem_v    = RegInit(false.B)
   val rd_ctrl_mem_cmd  = RegInit(0.U(MCMD_SIZE))
   val rd_ctrl_mem_type = RegInit(0.U(MT_SIZE))
@@ -154,38 +187,33 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   if_inst_en := io.run
 
   if_inst_addr := MuxCase (0.U, Array (
-    (dec_inst_valid & dec_jalr_en)     -> u_alu.io.res.asUInt,
-    (dec_inst_valid & dec_jal_en)      -> (dec_inst_addr + dec_imm_j),
-    (dec_inst_valid & dec_br_en)       -> (dec_inst_addr + dec_imm_b_sext),
-    (dec_inst_valid & dec_mret_en)     -> u_csrfile.io.mepc,
-    (dec_inst_valid & dec_ecall_en)    -> u_csrfile.io.mtvec,
-    (if_inst_en     & io.inst_bus.ack) -> (if_inst_addr + 4.U)
+    (rd_inst_valid & rd_jalr_en)      -> u_alu.io.res.asUInt,
+    (rd_inst_valid & rd_jal_en)       -> (rd_inst_addr + rd_imm_j),
+    (rd_inst_valid & rd_br_en)        -> (rd_inst_addr + rd_imm_b_sext),
+    (rd_inst_valid & rd_mret_en)      -> u_csrfile.io.mepc,
+    (rd_inst_valid & rd_ecall_en)     -> u_csrfile.io.mtvec,
+    (if_inst_en    & io.inst_bus.ack) -> (if_inst_addr + 4.U)
   ))
 
-  when (if_inst_en & dec_jalr_en) {
-    printf("%d : JALR is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-  }
-  when (if_inst_en & dec_jal_en) {
-    printf("%d : JAL  is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-  }
-  when (if_inst_en & dec_br_en) {
-    printf("%d : BR   is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-  }
-  when (if_inst_en & dec_mret_en) {
-    printf("%d : MRET is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-  }
-  when (if_inst_en & dec_ecall_en) {
-    printf("%d : ECAL is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-  }
-
-  val r_dec_jalr_en = Reg(Bool())
-  r_dec_jalr_en := if_inst_en & dec_jalr_en
-  when (r_dec_jalr_en) {
-    printf("JALR is done enable %x, \n", if_inst_addr)
+  if (conf.debug == true) {
+    when (if_inst_en & dec_jalr_en) {
+      printf("%d : JALR is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+    }
+    when (if_inst_en & dec_jal_en) {
+      printf("%d : JAL  is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+    }
+    when (if_inst_en & dec_br_en) {
+      printf("%d : BR   is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+    }
+    when (if_inst_en & dec_mret_en) {
+      printf("%d : MRET is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+    }
+    when (if_inst_en & dec_ecall_en) {
+      printf("%d : ECAL is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+    }
   }
 
-
-  io.inst_bus.req  := if_inst_en
+  io.inst_bus.req  := if_inst_en & (~rd_jump_en)
   io.inst_bus.addr := if_inst_addr
 
   io.data_bus.req    := rd_ctrl_mem_v
@@ -201,6 +229,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   } .otherwise {
     dec_inst_valid := false.B
   }
+  rd_inst_valid := dec_inst_valid
 
   // Opcode extraction and Register Read
   val dec_inst_rs2 = dec_inst_data(24,20)
@@ -275,26 +304,32 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   u_csrfile.io.rw.wdata := u_regs.io.rddata0.asUInt
   u_csrfile.io.ecall_inst := dec_ecall_en
 
-  /* Debug-Port */
-  io.dbg_monitor.inst_valid := dec_inst_valid
-  io.dbg_monitor.inst_addr  := dec_inst_addr
-  io.dbg_monitor.inst_hex   := dec_inst_data
+  if (conf.debug == true) {
+    /* Debug-Port */
+    io.dbg_monitor.inst_fetch_req    := io.inst_bus.req
+    io.dbg_monitor.inst_fetch_addr   := io.inst_bus.addr
+    io.dbg_monitor.inst_fetch_ack    := io.inst_bus.ack
+    io.dbg_monitor.inst_fetch_rddata := io.inst_bus.rddata
 
-  io.dbg_monitor.reg_wren   := u_regs.io.wren
-  io.dbg_monitor.reg_wraddr := u_regs.io.wraddr
-  io.dbg_monitor.reg_wrdata := u_regs.io.wrdata
+    io.dbg_monitor.inst_valid := dec_inst_valid
+    io.dbg_monitor.inst_addr  := dec_inst_addr
+    io.dbg_monitor.inst_hex   := dec_inst_data
 
-  io.dbg_monitor.alu_rdata0 := u_alu.io.op0
-  io.dbg_monitor.alu_rdata1 := u_alu.io.op1
-  io.dbg_monitor.alu_func   := u_alu.io.func
+    io.dbg_monitor.reg_wren   := u_regs.io.wren
+    io.dbg_monitor.reg_wraddr := u_regs.io.wraddr
+    io.dbg_monitor.reg_wrdata := u_regs.io.wrdata
 
-  io.dbg_monitor.data_bus_req    := io.data_bus.req
-  io.dbg_monitor.data_bus_cmd    := io.data_bus.cmd
-  io.dbg_monitor.data_bus_addr   := io.data_bus.addr
-  io.dbg_monitor.data_bus_wrdata := io.data_bus.wrdata
-  io.dbg_monitor.data_bus_ack    := io.data_bus.ack
-  io.dbg_monitor.data_bus_rddata := io.data_bus.rddata
+    io.dbg_monitor.alu_rdata0 := u_alu.io.op0
+    io.dbg_monitor.alu_rdata1 := u_alu.io.op1
+    io.dbg_monitor.alu_func   := u_alu.io.func
 
+    io.dbg_monitor.data_bus_req    := io.data_bus.req
+    io.dbg_monitor.data_bus_cmd    := io.data_bus.cmd
+    io.dbg_monitor.data_bus_addr   := io.data_bus.addr
+    io.dbg_monitor.data_bus_wrdata := io.data_bus.wrdata
+    io.dbg_monitor.data_bus_ack    := io.data_bus.ack
+    io.dbg_monitor.data_bus_rddata := io.data_bus.rddata
+  }
 }
 
 
