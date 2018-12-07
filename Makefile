@@ -1,14 +1,16 @@
-cpu_run:
-	sbt 'testOnly cpu.Tester -- -z Basic'
+.PHONY = regression gen_test_class invididual_tests cpu_verilog gen_test_class
 
-cpu_run2:
-	sbt 'testOnly cpu.Tester -- -z Basic3'
+regression: gen_test_class
+	sbt 'testOnly cpu.Tester_AllPattern'
+
+invididual_tests: gen_test_class
+	$(MAKE) run_all
 
 cpu_verilog:
 	sbt 'runMain cpu.CpuTop'
 
-test:
-	sbt 'testOnly counting_adders.Tester -- -z Basic'
+gen_test_class:
+	ruby ./gen_test_class.rb
 
 include rv64ui_test.mk
 

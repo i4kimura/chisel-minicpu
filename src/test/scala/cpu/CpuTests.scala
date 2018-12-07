@@ -50,7 +50,7 @@ class CpuTopTests(c: CpuTop, hexname: String, pipename: String) extends PeekPoke
   poke (cpu_tb.io.run, 1)
 
   breakable {
-    for (cycle <- 0 to 512) {
+    for (cycle <- 0 to 4096) {
       val inst_valid = peek(cpu_tb.io.dbg_monitor.inst_valid)
       if (inst_valid == 1) {
         writer.printf("%10d : ".format(cycle))
