@@ -111,7 +111,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   val io = IO (new CpuIo())
 
   val cycle = RegInit(0.U(32.W))
-  cycle := cycle + 1.U  
+  cycle := cycle + 1.U
 
   val u_cpath   = Module (new CtlPath)
   val u_regs    = Module (new Regs)
@@ -146,7 +146,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
   if_inst_en := io.run
 
   if_inst_addr := MuxCase (0.U, Array (
-    (dec_inst_valid & dec_jalr_en)     -> dec_reg_op0.asUInt,
+    (dec_inst_valid & dec_jalr_en)     -> u_alu.io.res.asUInt,
     (dec_inst_valid & dec_jal_en)      -> (dec_inst_addr + dec_imm_j),
     (dec_inst_valid & dec_br_en)       -> (dec_inst_addr + dec_imm_b_sext),
     (dec_inst_valid & dec_mret_en)     -> u_csrfile.io.mepc,
@@ -156,7 +156,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
 
   when (if_inst_en & dec_jalr_en) {
     printf("%d : JALR is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-  } 
+  }
   when (if_inst_en & dec_jal_en) {
     printf("%d : JAL  is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
   }
@@ -229,7 +229,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
     is (OP2_IMS) { u_alu.io.op1 := Cat(Fill(20,dec_imm_s(11)), dec_imm_s).asSInt }
   }
 
-  u_regs.io.wren   := u_cpath.io.ctl.wb_en
+  u_regs.io.wren   := dec_inst_valid & u_cpath.io.ctl.wb_en
   u_regs.io.wraddr := dec_inst_rd
   u_regs.io.wrdata := Mux ((u_cpath.io.ctl.jal === Y) | (u_cpath.io.ctl.jalr === Y), dec_inst_addr.asSInt + 4.S,
                       Mux (u_cpath.io.ctl.mem_cmd =/= MCMD_X, io.data_bus.rddata,
@@ -338,9 +338,9 @@ class Alu (implicit val conf: RV64IConf) extends Module {
     is (ALU_COPY2 ) { w_res := io.op1                                        }
     is (ALU_ADDW  ) { w_res := (io.op0(31, 0) + io.op1(31, 0)).asSInt        }
     is (ALU_SUBW  ) { w_res := (io.op0(31, 0) - io.op1(31, 0)).asSInt               }
-    is (ALU_SLLW  ) { w_res := (io.op0(31, 0).asUInt << io.op1(5,0).asUInt).asSInt  }
-    is (ALU_SRLW  ) { w_res := (io.op0(31, 0).asUInt >> io.op1(5,0).asUInt).asSInt  }
-    is (ALU_SRAW  ) { w_res := (io.op0(31, 0) >> io.op1(5,0).asUInt).asSInt         }
+    is (ALU_SLLW  ) { w_res := (io.op0(31, 0).asUInt << io.op1(4,0).asUInt).asSInt  }
+    is (ALU_SRLW  ) { w_res := (io.op0(31, 0).asUInt >> io.op1(4,0).asUInt).asSInt  }
+    is (ALU_SRAW  ) { w_res := (io.op0(31, 0).asSInt >> io.op1(4,0).asUInt).asSInt  }
     is (ALU_MUL   ) { w_res := w_mul_xlen2((conf.xlen-1),   0).asSInt         }
     is (ALU_MULH  ) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }
     is (ALU_MULHSU) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }

@@ -15,4 +15,4 @@ gen_test_class:
 include rv64ui_test.mk
 
 clean:
-	rm -rf test_run_dir project target *.v *.fir *.json
+	rm -rf test_run_dir project target *.v *.fir *.json *.log

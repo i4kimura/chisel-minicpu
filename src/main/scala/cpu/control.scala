@@ -118,7 +118,7 @@ class CtlPath extends Module
         SRAW    -> List(Y, OP1_RS1, OP2_RS2 , ALU_SRAW  , Y,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
 
         JAL     -> List(Y, OP1_X  , OP2_X   , ALU_X     , Y,  CSR.X,     Y,   N,     N,    N,      MCMD_X,   MT_X  ),
-        JALR    -> List(Y, OP1_RS1, OP2_IMI , ALU_X     , Y,  CSR.X,     N,   Y,     N,    N,      MCMD_X,   MT_X  ),
+        JALR    -> List(Y, OP1_RS1, OP2_IMI , ALU_ADD   , Y,  CSR.X,     N,   Y,     N,    N,      MCMD_X,   MT_X  ),
         BEQ     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SEQ   , N,  CSR.X,     N,   N,     Y,    N,      MCMD_X,   MT_X  ),
         BNE     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SNE   , N,  CSR.X,     N,   N,     Y,    N,      MCMD_X,   MT_X  ),
         BGE     -> List(Y, OP1_RS1, OP2_RS2 , ALU_SGE   , N,  CSR.X,     N,   N,     Y,    N,      MCMD_X,   MT_X  ),
