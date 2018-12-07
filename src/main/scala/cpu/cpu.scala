@@ -338,9 +338,9 @@ class Alu (implicit val conf: RV64IConf) extends Module {
     is (ALU_COPY2 ) { w_res := io.op1                                        }
     is (ALU_ADDW  ) { w_res := (io.op0(31, 0) + io.op1(31, 0)).asSInt        }
     is (ALU_SUBW  ) { w_res := (io.op0(31, 0) - io.op1(31, 0)).asSInt               }
-    is (ALU_SLLW  ) { w_res := (io.op0(31, 0).asUInt << io.op1(4,0).asUInt).asSInt  }
-    is (ALU_SRLW  ) { w_res := (io.op0(31, 0).asUInt >> io.op1(4,0).asUInt).asSInt  }
-    is (ALU_SRAW  ) { w_res := (io.op0(31, 0).asSInt >> io.op1(4,0).asUInt).asSInt  }
+    is (ALU_SLLW  ) { w_res := ((io.op0(31, 0).asSInt << io.op1(4,0).asUInt)(31, 0)).asSInt  }
+    is (ALU_SRLW  ) { w_res := ((io.op0(31, 0).asUInt >> io.op1(4,0).asUInt)(31, 0)).asSInt  }
+    is (ALU_SRAW  ) { w_res := ((io.op0(31, 0).asSInt >> io.op1(4,0).asUInt)(31, 0)).asSInt  }
     is (ALU_MUL   ) { w_res := w_mul_xlen2((conf.xlen-1),   0).asSInt         }
     is (ALU_MULH  ) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }
     is (ALU_MULHSU) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }
