@@ -48,18 +48,19 @@ class Memory (implicit val conf: RV64IConf) extends Module {
           memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
         }
         is (MT_W) {
-          if (io.data_bus.addr(2) == bank_idx(2)) {
-            memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+          when (io.data_bus.addr(2) === bank_idx(2)) {
+            printf("Write MT_W : %x <= %x\n", io.data_bus.addr(conf.bus_width-1, 3), io.data_bus.wrdata(data_msb, data_lsb))
+            memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata((bank & 0x3)*8+7, (bank & 0x3)*8+0)
           }
         }
         is (MT_H) {
-          if (io.data_bus.addr(2,1) == bank_idx(2,1)) {
-            memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+          when (io.data_bus.addr(2,1) === bank_idx(2,1)) {
+            memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata((bank & 0x1)*8+7, (bank & 0x1)*8+0)
           }
         }
         is (MT_B) {
-          if (io.data_bus.addr(2,0) == bank_idx(2,0)) {
-            memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata(data_msb, data_lsb)
+          when (io.data_bus.addr(2,0) === bank_idx(2,0)) {
+            memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata(7, 0)
           }
         }
       }
