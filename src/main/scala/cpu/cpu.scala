@@ -55,33 +55,33 @@ class RegIo extends Bundle {
 }
 
 
-class CpuDebugMonitor extends Bundle {
-  val inst_valid = Output(Bool())
-  val inst_addr  = Output(UInt(32.W))
-  val inst_hex   = Output(UInt(32.W))
+class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
+  val inst_valid = if (conf.debug == true) Output(Bool())             else Output(UInt(0.W))
+  val inst_addr  = if (conf.debug == true) Output(UInt(32.W))         else Output(UInt(0.W))
+  val inst_hex   = if (conf.debug == true) Output(UInt(32.W))         else Output(UInt(0.W))
 
-  val reg_wren   = Output(Bool())
-  val reg_wraddr = Output(UInt(5.W))
-  val reg_wrdata = Output(SInt(64.W))
+  val reg_wren   = if (conf.debug == true) Output(Bool())             else Output(UInt(0.W))
+  val reg_wraddr = if (conf.debug == true) Output(UInt(5.W))          else Output(UInt(0.W))
+  val reg_wrdata = if (conf.debug == true) Output(SInt(64.W))         else Output(SInt(0.W))
 
   // ALU
-  val alu_rdata0 = Output(SInt(64.W))
-  val alu_rdata1 = Output(SInt(64.W))
-  val alu_func   = Output(UInt(ALU_OP_SIZE))
+  val alu_rdata0 = if (conf.debug == true) Output(SInt(64.W))         else Output(SInt(0.W))
+  val alu_rdata1 = if (conf.debug == true) Output(SInt(64.W))         else Output(SInt(0.W))
+  val alu_func   = if (conf.debug == true) Output(UInt(ALU_OP_SIZE))  else Output(UInt(0.W))
 
   // DataBus
-  val data_bus_req    = Output(Bool())
-  val data_bus_cmd    = Output(UInt(2.W))
-  val data_bus_addr   = Output(UInt(32.W))
-  val data_bus_wrdata = Output(SInt(64.W))
-  val data_bus_ack    = Output(Bool())
-  val data_bus_rddata = Output(SInt(64.W))
+  val data_bus_req    = if (conf.debug == true) Output(Bool())        else Output(UInt(0.W))
+  val data_bus_cmd    = if (conf.debug == true) Output(UInt(2.W))     else Output(UInt(0.W))
+  val data_bus_addr   = if (conf.debug == true) Output(UInt(32.W))    else Output(UInt(0.W))
+  val data_bus_wrdata = if (conf.debug == true) Output(SInt(64.W))    else Output(SInt(0.W))
+  val data_bus_ack    = if (conf.debug == true) Output(Bool())        else Output(UInt(0.W))
+  val data_bus_rddata = if (conf.debug == true) Output(SInt(64.W))    else Output(SInt(0.W))
 }
 
 class CpuTopIo [Conf <: RVConfig](conf: Conf) extends Bundle {
   val run         = Input(Bool())
   val ext_bus     = new Bus(conf)
-  val dbg_monitor = new CpuDebugMonitor()
+  val dbg_monitor = new CpuDebugMonitor(conf)
 }
 
 
@@ -91,7 +91,7 @@ class CpuIo [Conf <: RVConfig](conf: Conf) extends Bundle {
   val inst_bus = new InstBus(conf)
   val data_bus = new DataBus(conf)
 
-  val dbg_monitor = new CpuDebugMonitor()
+  val dbg_monitor = new CpuDebugMonitor(conf)
 }
 
 
@@ -393,5 +393,5 @@ class SExt [Conf <: RVConfig](conf: Conf) extends Module {
 
 
 object CpuTop extends App {
-  chisel3.Driver.execute(args, () => new CpuTop(new RV64IConfig))
+  chisel3.Driver.execute(args, () => new CpuTop(new RV64ISynth))
 }
