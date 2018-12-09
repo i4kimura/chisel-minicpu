@@ -6,26 +6,32 @@ import chisel3.Bool
 
 import DecodeConsts._
 
-class Bus (implicit val conf: RV64IConf) extends Bundle {
+class Bus [Conf <: RVConfig](conf: Conf) extends Bundle {
   val req  = Input(Bool())
   val addr = Input(UInt(conf.bus_width.W))
   val data = Input(SInt(32.W))
 }
 
 
-class InstBus (implicit val conf: RV64IConf) extends Bundle {
+class InstBus [Conf <: RVConfig](conf: Conf) extends Bundle {
+  override def cloneType: this.type =
+    new InstBus(conf).asInstanceOf[this.type]
+
   val req    = Output(Bool())
-  val addr   = Output(UInt(conf.bus_width.W))
+  val addr   = Output(UInt(conf.xlen.W))
 
   val ack    = Input(Bool())
   val rddata = Input(SInt(32.W))
 }
 
 
-class DataBus (implicit val conf: RV64IConf) extends Bundle {
+class DataBus [Conf <: RVConfig](conf: Conf) extends Bundle {
+  override def cloneType: this.type =
+    new DataBus(conf).asInstanceOf[this.type]
+
   val req    = Output(Bool())
   val cmd    = Output(UInt(2.W))
-  val addr   = Output(UInt(conf.bus_width.W))
+  val addr   = Output(UInt(conf.xlen.W))
   val size   = Output(UInt(3.W))
   val wrdata = Output(SInt(64.W))
 
@@ -72,28 +78,28 @@ class CpuDebugMonitor extends Bundle {
   val data_bus_rddata = Output(SInt(64.W))
 }
 
-class CpuTopIo (implicit val conf: RV64IConf) extends Bundle {
+class CpuTopIo [Conf <: RVConfig](conf: Conf) extends Bundle {
   val run         = Input(Bool())
-  val ext_bus     = new Bus()
+  val ext_bus     = new Bus(conf)
   val dbg_monitor = new CpuDebugMonitor()
 }
 
 
-class CpuIo (implicit val conf: RV64IConf) extends Bundle {
+class CpuIo [Conf <: RVConfig](conf: Conf) extends Bundle {
   val run      = Input(Bool())
 
-  val inst_bus = new InstBus()
-  val data_bus = new DataBus()
+  val inst_bus = new InstBus(conf)
+  val data_bus = new DataBus(conf)
 
   val dbg_monitor = new CpuDebugMonitor()
 }
 
 
-class CpuTop (implicit val conf: RV64IConf) extends Module {
-  val io = IO (new CpuTopIo())
+class CpuTop [Conf <: RVConfig](conf: Conf) extends Module {
+  val io = IO (new CpuTopIo(conf))
 
-  val memory = Module(new Memory())
-  val cpu    = Module(new Cpu())
+  val memory = Module(new Memory(conf))
+  val cpu    = Module(new Cpu(conf))
 
   cpu.io.run       := io.run
 
@@ -107,16 +113,16 @@ class CpuTop (implicit val conf: RV64IConf) extends Module {
 }
 
 
-class Cpu (implicit val conf: RV64IConf) extends Module {
-  val io = IO (new CpuIo())
+class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
+  val io = IO (new CpuIo(conf))
 
   val cycle = RegInit(0.U(32.W))
   cycle := cycle + 1.U
 
   val u_cpath    = Module (new CtlPath)
-  val u_regs     = Module (new Regs)
-  val u_alu      = Module (new Alu)
-  val u_mem_sext = Module (new SExt)
+  val u_regs     = Module (new Regs(conf))
+  val u_alu      = Module (new Alu(conf))
+  val u_mem_sext = Module (new SExt(conf))
   val u_csrfile  = Module (new CsrFile)
 
   val if_inst_addr = RegInit(0.U(conf.bus_width.W))
@@ -275,7 +281,7 @@ class Cpu (implicit val conf: RV64IConf) extends Module {
 }
 
 
-class Regs (implicit val conf: RV64IConf)  extends Module {
+class Regs [Conf <: RVConfig](conf: Conf) extends Module {
   val io = IO (new RegIo)
 
   // val r_regs = RegInit( Vec(32, SInt(conf.xlen.W)).asTypeOf(0.U) )
@@ -299,7 +305,7 @@ class Regs (implicit val conf: RV64IConf)  extends Module {
 }
 
 
-class Alu (implicit val conf: RV64IConf) extends Module {
+class Alu [Conf <: RVConfig](conf: Conf) extends Module {
   val io = IO (new Bundle {
     val func = Input (UInt(ALU_OP_SIZE))
     val op0  = Input (SInt(conf.xlen.W))
@@ -365,7 +371,7 @@ class Alu (implicit val conf: RV64IConf) extends Module {
 }
 
 
-class SExt (implicit val conf: RV64IConf) extends Module {
+class SExt [Conf <: RVConfig](conf: Conf) extends Module {
   val io = IO (new Bundle {
     val in_val   = Input(SInt(conf.xlen.W))
     val ext_type = Input(UInt(MT_SIZE))
@@ -387,6 +393,5 @@ class SExt (implicit val conf: RV64IConf) extends Module {
 
 
 object CpuTop extends App {
-  implicit val conf = RV64IConf()
-  chisel3.Driver.execute(args, () => new CpuTop())
+  chisel3.Driver.execute(args, () => new CpuTop(new RV64IConfig))
 }

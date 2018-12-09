@@ -9,6 +9,9 @@ invididual_tests: gen_test_class
 cpu_verilog:
 	sbt 'runMain cpu.CpuTop'
 
+mod_verilog:
+	sbt 'runMain mod_test.ParamModTop'
+
 gen_test_class:
 	ruby ./gen_test_class.rb
 

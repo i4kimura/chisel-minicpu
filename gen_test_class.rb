@@ -19,8 +19,7 @@ hex_list.each{|hex_file|
 
   fp.puts("class Tester_" + pattern_name + " extends ChiselFlatSpec {\n")
   fp.puts("  \"Basic test using Driver.execute\" should \"be used as an alternative way to run specification\" in {\n")
-  fp.puts("    implicit val conf = RV64IConf()\n")
-  fp.puts("    iotesters.Driver.execute(Array(), () => new CpuTop()) {\n")
+  fp.puts("    iotesters.Driver.execute(Array(), () => new CpuTop(new RV64IConfig)) {\n")
   fp.puts("      c => new CpuTopTests(c, \"" + hex_file + "\", \"pipetrace." + pattern_name + ".log\")\n")
   fp.puts("    } should be (true)\n")
   fp.puts("  }\n")
@@ -69,8 +68,7 @@ hex_list.each{|hex_file|
   pattern_name = File.basename(hex_file, ".hex").gsub("-", "_")
 
   fp_all.puts("  \"" + pattern_name + " test using Driver.execute\" should \"be used as an alternative way to run specification\" in {\n")
-  fp_all.puts("    implicit val conf = RV64IConf()\n")
-  fp_all.puts("    iotesters.Driver.execute(Array(), () => new CpuTop()) {\n")
+  fp_all.puts("    iotesters.Driver.execute(Array(), () => new CpuTop(new RV64IConfig)) {\n")
   fp_all.puts("      c => new CpuTopTests(c, \"" + hex_file + "\", \"pipetrace." + pattern_name + ".log\")\n")
   fp_all.puts("    } should be (true)\n")
   fp_all.puts("  }\n")

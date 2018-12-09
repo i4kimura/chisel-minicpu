@@ -7,15 +7,15 @@ import chisel3.Bool
 import BusConsts._
 import DecodeConsts._
 
-class MemoryIo (implicit val conf: RV64IConf) extends Bundle {
-  val inst_bus = Flipped(new InstBus())
-  val data_bus = Flipped(new DataBus())
+class MemoryIo [Conf <: RVConfig](conf: Conf) extends Bundle {
+  val inst_bus = Flipped(new InstBus(conf))
+  val data_bus = Flipped(new DataBus(conf))
 
-  val ext_bus = new Bus()
+  val ext_bus = new Bus(conf)
 }
 
-class Memory (implicit val conf: RV64IConf) extends Module {
-  val io = IO(new MemoryIo())
+class Memory [Conf <: RVConfig](conf: Conf) extends Module {
+  val io = IO(new MemoryIo(conf))
 
   val inst_rd_data = Wire(Vec(8, UInt(8.W)))
   val data_rd_data = Wire(Vec(8, UInt(8.W)))
