@@ -62,7 +62,7 @@ class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename:
 
       if (inst_fetch_req == 1) { writer.printf("[%08x]".format(inst_fetch_addr)) }
       else                     { writer.printf("          ") }
-      if (inst_fetch_ack == 1) { writer.printf("=>%08x ".format(inst_fetch_rddata)) }
+      if (inst_fetch_ack == 1) { writer.printf("  %08x ".format(inst_fetch_rddata)) }
       else                     { writer.printf("           ") }
       writer.printf("|")
 

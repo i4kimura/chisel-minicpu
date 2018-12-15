@@ -86,9 +86,9 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val if_inst_en   = RegInit(false.B)
 
   // Get Instruction
-  val dec_inst_data  = Reg(UInt(32.W))
+  val dec_inst_data  = Wire(UInt(32.W))
   val dec_inst_addr  = Reg(UInt(conf.bus_width.W))
-  val dec_inst_valid = RegInit(false.B)
+  val dec_inst_valid = Wire(Bool())
 
   val dec_imm_i      = dec_inst_data(31, 20).asSInt
   val dec_imm_b      = Cat(dec_inst_data(31), dec_inst_data(7), dec_inst_data(30,25), dec_inst_data(11,8))
@@ -102,55 +102,53 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
 
   val dec_jalr_en  = u_cpath.io.ctl.jalr
   val dec_jal_en   = u_cpath.io.ctl.jal
-  val dec_br_en    = u_cpath.io.ctl.br & (u_alu.io.res === 1.S)
+  val dec_br_en    = u_cpath.io.ctl.br
   val dec_mret_en  = (u_cpath.io.ctl.wbcsr === CSR.Mret)
   val dec_ecall_en = (u_cpath.io.ctl.wbcsr === CSR.Inst)
-  val dec_jump_en  = dec_inst_valid & (dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en)
+  val dec_jump_en  = dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en
 
   val mem_rdval = Wire(SInt(conf.xlen.W))
 
-  val rd_inst_valid = RegInit(false.B)
-  val rd_inst_data  = RegInit(0.U(32.W))
-  val rd_inst_addr  = RegInit(0.U(conf.bus_width.W))
+  val ex_inst_valid = RegNext(dec_inst_valid)
+  val ex_inst_data  = RegNext(dec_inst_data)
+  val ex_inst_addr  = RegNext(dec_inst_addr)
 
-  val rd_jalr_en   = RegInit(false.B)
-  val rd_jal_en    = RegInit(false.B)
-  val rd_br_en     = RegInit(false.B)
-  val rd_mret_en   = RegInit(false.B)
-  val rd_ecall_en  = RegInit(false.B)
-  val rd_jump_en   = Wire(Bool())
+  val ex_jalr_en   = RegInit(false.B)
+  val ex_jal_en    = RegInit(false.B)
+  val ex_br_en     = RegInit(false.B)
+  val ex_mret_en   = RegInit(false.B)
+  val ex_ecall_en  = RegInit(false.B)
+  val ex_jump_en   = Wire(Bool())
 
-  val rd_imm_b_sext = RegInit(0.U(conf.xlen.W))
-  val rd_imm_j      = RegInit(0.U(conf.xlen.W))
+  val ex_imm_i      = RegNext (dec_imm_i)
+  val ex_imm_b_sext = RegNext (dec_imm_b_sext)
+  val ex_imm_s      = RegNext (dec_imm_s)
+  val ex_imm_j      = RegNext (dec_imm_j)
 
-  rd_inst_valid := dec_inst_valid
-  rd_inst_data  := dec_inst_data
-  rd_inst_addr  := dec_inst_addr
+  ex_jalr_en  := dec_jalr_en
+  ex_jal_en   := dec_jal_en
+  ex_br_en    := dec_br_en & (u_alu.io.res === 1.S)
+  ex_mret_en  := dec_mret_en
+  ex_ecall_en := dec_ecall_en
+  ex_jump_en  := ex_inst_valid & (ex_jalr_en | ex_jal_en | ex_br_en | ex_mret_en)
 
-  rd_jalr_en  := dec_jalr_en
-  rd_jal_en   := dec_jal_en
-  rd_br_en    := dec_br_en
-  rd_mret_en  := dec_mret_en
-  rd_ecall_en := dec_ecall_en
-  rd_jump_en  := rd_inst_valid & (rd_jalr_en | rd_jal_en | rd_br_en | rd_mret_en)
+  ex_imm_b_sext := dec_imm_b_sext
+  ex_imm_j      := dec_imm_j
 
-  rd_imm_b_sext := dec_imm_b_sext
-  rd_imm_j      := dec_imm_j
-
-  val rd_ctrl_mem_v    = RegInit(false.B)
-  val rd_ctrl_mem_cmd  = RegInit(0.U(MCMD_SIZE))
-  val rd_ctrl_mem_type = RegInit(0.U(MT_SIZE))
-  val rd_rdata_op1     = RegInit(0.S(conf.xlen.W))
+  val ex_ctrl_mem_v    = RegNext (u_cpath.io.ctl.mem_v)
+  val ex_ctrl_mem_cmd  = RegNext (u_cpath.io.ctl.mem_cmd)
+  val ex_ctrl_mem_type = RegNext (u_cpath.io.ctl.mem_type)
+  val ex_rdata_op1     = RegNext (dec_reg_op1)
 
   if_inst_en := io.run
 
   if_inst_addr := MuxCase (0.U, Array (
-    (rd_inst_valid & rd_jalr_en)      -> u_alu.io.res.asUInt,
-    (rd_inst_valid & rd_jal_en)       -> (rd_inst_addr + rd_imm_j),
-    (rd_inst_valid & rd_br_en)        -> (rd_inst_addr + rd_imm_b_sext),
-    (rd_inst_valid & rd_mret_en)      -> u_csrfile.io.mepc,
-    (rd_inst_valid & rd_ecall_en)     -> u_csrfile.io.mtvec,
-    (if_inst_en    & io.inst_bus.ack) -> (if_inst_addr + 4.U)
+    (ex_inst_valid & ex_jalr_en)      -> u_alu.io.res.asUInt,
+    (ex_inst_valid & ex_jal_en)       -> (ex_inst_addr + ex_imm_j),
+    (ex_inst_valid & ex_br_en)        -> (ex_inst_addr + ex_imm_b_sext),
+    (ex_inst_valid & ex_mret_en)      -> u_csrfile.io.mepc,
+    (ex_inst_valid & ex_ecall_en)     -> u_csrfile.io.mtvec,
+    (if_inst_en)                      -> (if_inst_addr + 4.U)
   ))
 
   // if (conf.debug == true) {
@@ -171,23 +169,22 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   //   }
   // }
 
-  io.inst_bus.req  := if_inst_en & (~rd_jump_en)
+  io.inst_bus.req  := if_inst_en & (~ex_jump_en)
   io.inst_bus.addr := if_inst_addr
 
-  io.data_bus.req    := rd_ctrl_mem_v
-  io.data_bus.cmd    := rd_ctrl_mem_cmd
-  io.data_bus.size   := rd_ctrl_mem_type
+  io.data_bus.req    := ex_ctrl_mem_v
+  io.data_bus.cmd    := ex_ctrl_mem_cmd
+  io.data_bus.size   := ex_ctrl_mem_type
   io.data_bus.addr   := u_alu.io.res.asUInt
-  io.data_bus.wrdata := rd_rdata_op1
+  io.data_bus.wrdata := ex_rdata_op1
 
+  dec_inst_data := io.inst_bus.rddata.asUInt
+  dec_inst_addr := if_inst_addr
   when  (if_inst_en & io.inst_bus.ack) {
-    dec_inst_data := io.inst_bus.rddata.asUInt
-    dec_inst_addr := if_inst_addr
-    dec_inst_valid := Mux(dec_jump_en, false.B, true.B)
+    dec_inst_valid := Mux(ex_jump_en, false.B, io.inst_bus.ack)
   } .otherwise {
     dec_inst_valid := false.B
   }
-  rd_inst_valid := dec_inst_valid
 
   // Opcode extraction and Register Read
   val dec_inst_rs2 = dec_inst_data(24,20)
@@ -208,39 +205,35 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
     dec_reg_op1       := u_regs.io.rddata1
   }
 
-  val rd_alu_func = Reg (UInt(ALU_OP_SIZE))
-  val rd_alu_op0  = Reg (SInt(conf.xlen.W))
-  val rd_alu_op1  = Reg (SInt(conf.xlen.W))
+  val ex_reg_op0 = RegNext(dec_reg_op0)
+  val ex_reg_op1 = RegNext(dec_reg_op1)
 
-  rd_alu_func := u_cpath.io.ctl.alu_fun
+  val ex_alu_func = Reg (UInt(ALU_OP_SIZE))
+  val ex_alu_op0  = Wire (SInt(conf.xlen.W))
+  val ex_alu_op1  = Wire (SInt(conf.xlen.W))
+
+  ex_alu_func := u_cpath.io.ctl.alu_fun
+  ex_alu_op0 := 0.S
   switch(u_cpath.io.ctl.op0_sel) {
-    is (OP0_RS1) { rd_alu_op0 := dec_reg_op0 }
-    is (OP0_IMU) { rd_alu_op0 := Cat(dec_inst_data(31, 12), Fill(12,0.U)).asSInt }
-    is (OP0_IMZ) { rd_alu_op0 := Cat(Fill(27,0.U), dec_inst_data(19,15)).asSInt }
+    is (OP0_RS1) { ex_alu_op0 := ex_reg_op0 }
+    is (OP0_IMU) { ex_alu_op0 := Cat(ex_inst_data(31, 12), Fill(12,0.U)).asSInt }
+    is (OP0_IMZ) { ex_alu_op0 := Cat(Fill(27,0.U), ex_inst_data(19,15)).asSInt }
   }
 
+  ex_alu_op1 := 0.S
   switch(u_cpath.io.ctl.op1_sel) {
-    is (OP1_PC ) { rd_alu_op1 := dec_inst_addr.asSInt }
-    is (OP1_RS2) { rd_alu_op1 := dec_reg_op1 }
-    is (OP1_IMI) { rd_alu_op1 := Cat(Fill(20,dec_imm_i(11)), dec_imm_i).asSInt }
-    is (OP1_IMS) { rd_alu_op1 := Cat(Fill(20,dec_imm_s(11)), dec_imm_s).asSInt }
+    is (OP1_PC ) { ex_alu_op1 := ex_inst_addr.asSInt }
+    is (OP1_RS2) { ex_alu_op1 := ex_reg_op1 }
+    is (OP1_IMI) { ex_alu_op1 := Cat(Fill(20,ex_imm_i(11)), ex_imm_i).asSInt }
+    is (OP1_IMS) { ex_alu_op1 := Cat(Fill(20,ex_imm_s(11)), ex_imm_s).asSInt }
   }
-
-  /*!
-   * Register Read Pipeline
-   */
-  rd_ctrl_mem_v      := u_cpath.io.ctl.mem_v
-  rd_ctrl_mem_cmd    := u_cpath.io.ctl.mem_cmd
-  rd_ctrl_mem_type   := u_cpath.io.ctl.mem_type
-
-  rd_rdata_op1 := dec_reg_op1
 
   /*!
    * ALU Input
    */
-  u_alu.io.func := rd_alu_func
-  u_alu.io.op0  := rd_alu_op0
-  u_alu.io.op1  := rd_alu_op1
+  u_alu.io.func := ex_alu_func
+  u_alu.io.op0  := ex_alu_op0
+  u_alu.io.op1  := ex_alu_op1
 
   u_regs.io.wren   := dec_inst_valid & u_cpath.io.ctl.wb_en
   u_regs.io.wraddr := dec_inst_rd
@@ -269,9 +262,9 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
     io.dbg_monitor.inst_fetch_ack    := io.inst_bus.ack
     io.dbg_monitor.inst_fetch_rddata := io.inst_bus.rddata
 
-    io.dbg_monitor.inst_valid := dec_inst_valid
-    io.dbg_monitor.inst_addr  := dec_inst_addr
-    io.dbg_monitor.inst_hex   := dec_inst_data
+    io.dbg_monitor.inst_valid := ex_inst_valid
+    io.dbg_monitor.inst_addr  := ex_inst_addr
+    io.dbg_monitor.inst_hex   := ex_inst_data
 
     io.dbg_monitor.reg_wren   := u_regs.io.wren
     io.dbg_monitor.reg_wraddr := u_regs.io.wraddr
@@ -279,7 +272,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
 
     io.dbg_monitor.alu_rdata0 := u_alu.io.op0
     io.dbg_monitor.alu_rdata1 := u_alu.io.op1
-    io.dbg_monitor.alu_func   := u_alu.io.func
+    io.dbg_monitor.alu_func   := Mux(ex_inst_valid, u_alu.io.func, 0.U)
 
     io.dbg_monitor.data_bus_req    := io.data_bus.req
     io.dbg_monitor.data_bus_cmd    := io.data_bus.cmd

@@ -18,7 +18,7 @@ class InstBus [Conf <: RVConfig](conf: Conf) extends Bundle {
     new InstBus(conf).asInstanceOf[this.type]
 
   val req    = Output(Bool())
-  val addr   = Output(UInt(conf.xlen.W))
+  val addr   = Output(UInt(conf.bus_width.W))
 
   val ack    = Input(Bool())
   val rddata = Input(SInt(32.W))
@@ -31,9 +31,9 @@ class DataBus [Conf <: RVConfig](conf: Conf) extends Bundle {
 
   val req    = Output(Bool())
   val cmd    = Output(UInt(2.W))
-  val addr   = Output(UInt(conf.xlen.W))
+  val addr   = Output(UInt(conf.bus_width.W))
   val size   = Output(UInt(3.W))
-  val wrdata = Output(SInt(64.W))
+  val wrdata = Output(SInt(conf.xlen.W))
 
   val ack    = Input(Bool())
   val rddata = Input(SInt(64.W))
