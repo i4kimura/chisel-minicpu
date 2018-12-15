@@ -211,7 +211,6 @@ class CsrFile extends Module
   val insn_wfi = system_insn && opcode(5) && priv_sufficient
 
   when(io.ecall_inst) {
-  	printf("Mcause set %x\n", Causes.UserEcall.U)
     reg_mcause := Causes.UserEcall.U
   } .elsewhen (decoded_addr(CsrAddr.mcause)) {
   	reg_mcause := wdata & ((BigInt(1) << (63)) + 31).U /* only implement 5 LSBs and MSB */
@@ -226,7 +225,7 @@ class CsrFile extends Module
   when (decoded_addr(CsrAddr.mepc))     { reg_mepc := (wdata(63,0) >> 2.U) << 2.U }
   when (decoded_addr(CsrAddr.mscratch)) { reg_mscratch := wdata }
   when (decoded_addr(CsrAddr.mtval))    { reg_mtval := wdata(63,0) }
-  when (decoded_addr(CsrAddr.mtvec))    { 
+  when (decoded_addr(CsrAddr.mtvec))    {
     reg_mtvec := wdata(63,0)
   }
   when (decoded_addr(CsrAddr.medeleg))  { reg_medeleg := wdata(63,0) }
