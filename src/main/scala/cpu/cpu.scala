@@ -6,63 +6,20 @@ import chisel3.Bool
 
 import DecodeConsts._
 
-class Bus [Conf <: RVConfig](conf: Conf) extends Bundle {
-  val req  = Input(Bool())
-  val addr = Input(UInt(conf.bus_width.W))
-  val data = Input(SInt(32.W))
-}
-
-
-class InstBus [Conf <: RVConfig](conf: Conf) extends Bundle {
-  override def cloneType: this.type =
-    new InstBus(conf).asInstanceOf[this.type]
-
-  val req    = Output(Bool())
-  val addr   = Output(UInt(conf.xlen.W))
-
-  val ack    = Input(Bool())
-  val rddata = Input(SInt(32.W))
-}
-
-
-class DataBus [Conf <: RVConfig](conf: Conf) extends Bundle {
-  override def cloneType: this.type =
-    new DataBus(conf).asInstanceOf[this.type]
-
-  val req    = Output(Bool())
-  val cmd    = Output(UInt(2.W))
-  val addr   = Output(UInt(conf.xlen.W))
-  val size   = Output(UInt(3.W))
-  val wrdata = Output(SInt(64.W))
-
-  val ack    = Input(Bool())
-  val rddata = Input(SInt(64.W))
-}
-
-
-class RegIo extends Bundle {
-  val rden0   = Input  (Bool())
-  val rdaddr0 = Input  (UInt(5.W))
-  val rddata0 = Output (SInt(64.W))
-
-  val rden1   = Input  (Bool())
-  val rdaddr1 = Input  (UInt(5.W))
-  val rddata1 = Output (SInt(64.W))
-
-  val wren   = Input  (Bool())
-  val wraddr = Input  (UInt(5.W))
-  val wrdata = Input  (SInt(64.W))
-}
-
 
 class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
-  val inst_valid = if (conf.debug == true) Output(Bool())             else Output(UInt(0.W))
-  val inst_addr  = if (conf.debug == true) Output(UInt(32.W))         else Output(UInt(0.W))
-  val inst_hex   = if (conf.debug == true) Output(UInt(32.W))         else Output(UInt(0.W))
+  val inst_fetch_req    = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
+  val inst_fetch_addr   = if (conf.debug == true) Output(UInt(32.W)) else Output(UInt(0.W))
+  val inst_fetch_ack    = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
+  val inst_fetch_rddata = if (conf.debug == true) Output(UInt(32.W)) else Output(UInt(0.W))
 
-  val reg_wren   = if (conf.debug == true) Output(Bool())             else Output(UInt(0.W))
-  val reg_wraddr = if (conf.debug == true) Output(UInt(5.W))          else Output(UInt(0.W))
-  val reg_wrdata = if (conf.debug == true) Output(SInt(64.W))         else Output(SInt(0.W))
+  val inst_valid = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
+  val inst_addr  = if (conf.debug == true) Output(UInt(32.W)) else Output(UInt(0.W))
+  val inst_hex   = if (conf.debug == true) Output(UInt(32.W)) else Output(UInt(0.W))
+
+  val reg_wren   = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
+  val reg_wraddr = if (conf.debug == true) Output(UInt(5.W))  else Output(UInt(0.W))
+  val reg_wrdata = if (conf.debug == true) Output(SInt(64.W)) else Output(SInt(0.W))
 
   // ALU
   val alu_rdata0 = if (conf.debug == true) Output(SInt(64.W))         else Output(SInt(0.W))
@@ -70,12 +27,12 @@ class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
   val alu_func   = if (conf.debug == true) Output(UInt(ALU_OP_SIZE))  else Output(UInt(0.W))
 
   // DataBus
-  val data_bus_req    = if (conf.debug == true) Output(Bool())        else Output(UInt(0.W))
-  val data_bus_cmd    = if (conf.debug == true) Output(UInt(2.W))     else Output(UInt(0.W))
-  val data_bus_addr   = if (conf.debug == true) Output(UInt(32.W))    else Output(UInt(0.W))
-  val data_bus_wrdata = if (conf.debug == true) Output(SInt(64.W))    else Output(SInt(0.W))
-  val data_bus_ack    = if (conf.debug == true) Output(Bool())        else Output(UInt(0.W))
-  val data_bus_rddata = if (conf.debug == true) Output(SInt(64.W))    else Output(SInt(0.W))
+  val data_bus_req    = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
+  val data_bus_cmd    = if (conf.debug == true) Output(UInt(2.W))  else Output(UInt(0.W))
+  val data_bus_addr   = if (conf.debug == true) Output(UInt(32.W)) else Output(UInt(0.W))
+  val data_bus_wrdata = if (conf.debug == true) Output(SInt(64.W)) else Output(SInt(0.W))
+  val data_bus_ack    = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
+  val data_bus_rddata = if (conf.debug == true) Output(SInt(64.W)) else Output(SInt(0.W))
 }
 
 class CpuTopIo [Conf <: RVConfig](conf: Conf) extends Bundle {
@@ -331,96 +288,6 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
     io.dbg_monitor.data_bus_ack    := io.data_bus.ack
     io.dbg_monitor.data_bus_rddata := io.data_bus.rddata
   }
-}
-
-
-class Regs [Conf <: RVConfig](conf: Conf) extends Module {
-  val io = IO (new RegIo)
-
-  // val r_regs = RegInit( Vec(32, SInt(conf.xlen.W)).asTypeOf(0.U) )
-  val r_regs = Mem(32, SInt(conf.xlen.W))
-
-  when (io.rden0 && (io.rdaddr0 =/= 0.U(64.W))) {
-    io.rddata0 := r_regs(io.rdaddr0)
-  } .otherwise {
-    io.rddata0 := 0.S(64.W)
-  }
-
-  when (io.rden1 && (io.rdaddr1 =/= 0.U(64.W))) {
-    io.rddata1 := r_regs(io.rdaddr1)
-  } .otherwise {
-    io.rddata1 := 0.S(64.W)
-  }
-
-  when (io.wren && (io.wraddr =/= 0.U(64.W))) {
-    r_regs(io.wraddr) := io.wrdata
-  }
-}
-
-
-class Alu [Conf <: RVConfig](conf: Conf) extends Module {
-  val io = IO (new Bundle {
-    val func = Input (UInt(ALU_OP_SIZE))
-    val op0  = Input (SInt(conf.xlen.W))
-    val op1  = Input (SInt(conf.xlen.W))
-
-    val res  = Output (SInt(conf.xlen.W))
-  })
-
-  // when (io.func =/= ALU_X) {
-  //   printf("ALU : OP1[0x")
-  //   PrintHex(io.i_op0, 16, writer)
-  //   printf("] OP2[0x")
-  //   PrintHex(io.i_op1, 16, writer)
-  //   printf("] %d\n", io.i_func)
-  // }
-
-  val w_mul_xlen2 = Wire(SInt((conf.xlen*2).W))
-  w_mul_xlen2 := 0.S
-  switch (io.func) {
-    is (ALU_MUL   ) { w_mul_xlen2 := (io.op0.asSInt * io.op1.asSInt).asSInt }
-    is (ALU_MULH  ) { w_mul_xlen2 := (io.op0.asSInt * io.op1.asSInt).asSInt }
-    is (ALU_MULHSU) { w_mul_xlen2 := (io.op0.asSInt * io.op1.asUInt).asSInt }
-    is (ALU_MULHU ) { w_mul_xlen2 := (io.op0.asUInt * io.op1.asUInt).asSInt }
-  }
-
-  val w_mul_xlen = Wire(SInt((conf.xlen).W))
-  w_mul_xlen := io.op0(31, 0).asSInt * io.op1(31, 0).asSInt
-
-  val w_res = Wire(SInt(conf.xlen.W))
-  w_res := 0.S
-  switch (io.func) {
-    is (ALU_ADD   ) { w_res := io.op0 + io.op1                               }
-    is (ALU_SUB   ) { w_res := io.op0 - io.op1                               }
-    is (ALU_SLL   ) { w_res := (io.op0.asUInt << io.op1(5,0).asUInt).asSInt  }
-    is (ALU_SRL   ) { w_res := (io.op0.asUInt >> io.op1(5,0).asUInt).asSInt  }
-    is (ALU_SRA   ) { w_res := (io.op0 >> io.op1(5,0).asUInt).asSInt         }
-    is (ALU_AND   ) { w_res := io.op0 & io.op1                               }
-    is (ALU_OR    ) { w_res := io.op0 | io.op1                               }
-    is (ALU_XOR   ) { w_res := io.op0 ^ io.op1                               }
-    is (ALU_SLT   ) { w_res := Mux(io.op0        <  io.op1,        1.S, 0.S) }
-    is (ALU_SLTU  ) { w_res := Mux(io.op0.asUInt <  io.op1.asUInt, 1.S, 0.S) }
-    is (ALU_SNE   ) { w_res := Mux(io.op0 =/= io.op1, 1.S, 0.S)              }
-    is (ALU_SEQ   ) { w_res := Mux(io.op0 === io.op1, 1.S, 0.S)              }
-    is (ALU_SGE   ) { w_res := Mux(io.op0        >= io.op1,        1.S, 0.S) }
-    is (ALU_SGEU  ) { w_res := Mux(io.op0.asUInt >= io.op1.asUInt, 1.S, 0.S) }
-    is (ALU_COPY1 ) { w_res := io.op0                                        }
-    is (ALU_COPY2 ) { w_res := io.op1                                        }
-    is (ALU_ADDW  ) { w_res := (io.op0(31, 0) + io.op1(31, 0)).asSInt        }
-    is (ALU_SUBW  ) { w_res := (io.op0(31, 0) - io.op1(31, 0)).asSInt               }
-    is (ALU_SLLW  ) { w_res := ((io.op0(31, 0).asSInt << io.op1(4,0).asUInt)(31, 0)).asSInt  }
-    is (ALU_SRLW  ) { w_res := ((io.op0(31, 0).asUInt >> io.op1(4,0).asUInt)(31, 0)).asSInt  }
-    is (ALU_SRAW  ) { w_res := ((io.op0(31, 0).asSInt >> io.op1(4,0).asUInt)(31, 0)).asSInt  }
-    is (ALU_MUL   ) { w_res := w_mul_xlen2((conf.xlen-1),   0).asSInt         }
-    is (ALU_MULH  ) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }
-    is (ALU_MULHSU) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }
-    is (ALU_MULHU ) { w_res := w_mul_xlen2((conf.xlen*2-1), conf.xlen).asSInt }
-    is (ALU_MULW  ) { w_res := w_mul_xlen(31, 0).asSInt                       }
-  }
-
-  val r_res = Reg(SInt(conf.xlen.W))
-  r_res := w_res
-  io.res := w_res
 }
 
 
