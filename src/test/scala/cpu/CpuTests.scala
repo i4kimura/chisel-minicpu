@@ -8,7 +8,7 @@ import util.control.Breaks._
 
 import BusConsts._
 
-class CpuTopTests(c: CpuTop, hexname: String, pipename: String) extends PeekPokeTester(c)
+class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename: String) extends PeekPokeTester(c)
 {
   val fp = Source.fromFile(hexname)
   val lines = fp.getLines
@@ -128,8 +128,7 @@ class CpuTopTests(c: CpuTop, hexname: String, pipename: String) extends PeekPoke
 
 class Tester extends ChiselFlatSpec {
   "Basic test using Driver.execute" should "be used as an alternative way to run specification" in {
-    implicit val conf = RV64IConf()
-    iotesters.Driver.execute(Array(), () => new CpuTop()) {
+    iotesters.Driver.execute(Array(), () => new CpuTop(new RV64IConfig)) {
       c => new CpuTopTests(c, "test.hex", "pipetrace.log")
     } should be (true)
   }
