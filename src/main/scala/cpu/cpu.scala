@@ -153,23 +153,23 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
     (if_inst_en    & io.inst_bus.ack) -> (if_inst_addr + 4.U)
   ))
 
-  if (conf.debug == true) {
-    when (if_inst_en & dec_jalr_en) {
-      printf("%d : JALR is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-    }
-    when (if_inst_en & dec_jal_en) {
-      printf("%d : JAL  is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-    }
-    when (if_inst_en & dec_br_en) {
-      printf("%d : BR   is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-    }
-    when (if_inst_en & dec_mret_en) {
-      printf("%d : MRET is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-    }
-    when (if_inst_en & dec_ecall_en) {
-      printf("%d : ECAL is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
-    }
-  }
+  // if (conf.debug == true) {
+  //   when (if_inst_en & dec_jalr_en) {
+  //     printf("%d : JALR is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //   }
+  //   when (if_inst_en & dec_jal_en) {
+  //     printf("%d : JAL  is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //   }
+  //   when (if_inst_en & dec_br_en) {
+  //     printf("%d : BR   is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //   }
+  //   when (if_inst_en & dec_mret_en) {
+  //     printf("%d : MRET is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //   }
+  //   when (if_inst_en & dec_ecall_en) {
+  //     printf("%d : ECAL is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //   }
+  // }
 
   io.inst_bus.req  := if_inst_en & (~rd_jump_en)
   io.inst_bus.addr := if_inst_addr
