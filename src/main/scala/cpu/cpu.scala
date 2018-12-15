@@ -11,7 +11,7 @@ class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
   val inst_fetch_req    = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
   val inst_fetch_addr   = if (conf.debug == true) Output(UInt(32.W)) else Output(UInt(0.W))
   val inst_fetch_ack    = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
-  val inst_fetch_rddata = if (conf.debug == true) Output(UInt(32.W)) else Output(UInt(0.W))
+  val inst_fetch_rddata = if (conf.debug == true) Output(SInt(32.W)) else Output(SInt(0.W))
 
   val inst_valid = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
   val inst_addr  = if (conf.debug == true) Output(UInt(32.W)) else Output(UInt(0.W))
