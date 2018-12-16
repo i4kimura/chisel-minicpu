@@ -51,6 +51,10 @@ class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename:
 
   breakable {
     for (cycle <- 0 to 4096) {
+      if ((cycle % 32) == 0) {
+        writer.printf("  cycle    :         IF           |               EX_STAGE_REG_READ                  |                   MEM_STAGE_MEM_ACCESS                |        WB_STAGE       |\n")
+      }
+
       val inst_valid = peek(cpu_tb.io.dbg_monitor.inst_valid)
 
       writer.printf("%10d : ".format(cycle))
@@ -70,14 +74,16 @@ class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename:
       val reg_wraddr : Long = peek(cpu_tb.io.dbg_monitor.reg_wraddr).toLong
       val reg_wrdata : Long = peek(cpu_tb.io.dbg_monitor.reg_wrdata).toLong
 
-      val alu_rdata0 : Long = peek (cpu_tb.io.dbg_monitor.alu_rdata0).toLong
-      val alu_rdata1 : Long = peek (cpu_tb.io.dbg_monitor.alu_rdata1).toLong
+      val alu_rdata0  : Long = peek (cpu_tb.io.dbg_monitor.alu_rdata0).toLong
+      val alu_reg_rs0 = peek (cpu_tb.io.dbg_monitor.alu_reg_rs0).toLong
+      val alu_rdata1  : Long = peek (cpu_tb.io.dbg_monitor.alu_rdata1).toLong
+      val alu_reg_rs1 = peek (cpu_tb.io.dbg_monitor.alu_reg_rs1).toLong
       val alu_func          = peek (cpu_tb.io.dbg_monitor.alu_func)
 
       if (alu_func != 0) {
-        writer.printf("%2d, %016x, %016x".format(alu_func, alu_rdata0, alu_rdata1))
+        writer.printf("%2d,X[%2d]=>%016x,X[%02d]=>%016x".format(alu_func, alu_reg_rs0, alu_rdata0, alu_reg_rs1, alu_rdata1))
       } else {
-        writer.printf("                                      ")
+        writer.printf("                                                  ")
       }
       writer.printf("|")
 
@@ -100,6 +106,17 @@ class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename:
         writer.printf(" [%08x]=>0x%016x".format(data_bus_addr, data_bus_rddata.toLong))
       } else {
         writer.printf("                               ")
+      }
+
+      // MemStage ALU Data Pass
+      val mem_inst_valid = peek(cpu_tb.io.dbg_monitor.mem_inst_valid)
+      val mem_inst_rd    = peek(cpu_tb.io.dbg_monitor.mem_inst_rd   )
+      val mem_alu_res    = peek(cpu_tb.io.dbg_monitor.mem_alu_res   )
+
+      if (mem_inst_valid == 1) {
+        writer.printf("|X%02d<=0x%016x|".format(mem_inst_rd, mem_alu_res))
+      } else {
+        writer.printf("|                       |")
       }
 
       if (inst_valid == 1) {
