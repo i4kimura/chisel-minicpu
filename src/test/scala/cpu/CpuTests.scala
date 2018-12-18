@@ -52,7 +52,7 @@ class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename:
   breakable {
     for (cycle <- 0 to 4096) {
       if ((cycle % 32) == 0) {
-        writer.printf("  cycle    :         IF           |               EX_STAGE_REG_READ                  |                   MEM_STAGE_MEM_ACCESS                |        WB_STAGE       |\n")
+        writer.printf("  cycle    :           IF           |               EX_STAGE_REG_READ                  |      EX_CSR_UPDATE       |                   MEM_STAGE_MEM_ACCESS                |        WB_STAGE       |\n")
       }
 
       val inst_valid = peek(cpu_tb.io.dbg_monitor.inst_valid)
@@ -64,15 +64,19 @@ class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename:
       val inst_fetch_ack           = peek(cpu_tb.io.dbg_monitor.inst_fetch_ack)
       val inst_fetch_rddata        = peek(cpu_tb.io.dbg_monitor.inst_fetch_rddata)
 
+      val pc_update_cause = peek(cpu_tb.io.dbg_monitor.pc_update_cause)
+      if      (pc_update_cause == 1) { writer.printf("JL") }
+      else if (pc_update_cause == 2) { writer.printf("JA") }
+      else if (pc_update_cause == 3) { writer.printf("BR") }
+      else if (pc_update_cause == 4) { writer.printf("MR") }
+      else if (pc_update_cause == 5) { writer.printf("EC") }
+      else                           { writer.printf("  ") }
+
       if (inst_fetch_req == 1) { writer.printf("[%08x]".format(inst_fetch_addr)) }
       else                     { writer.printf("          ") }
       if (inst_fetch_ack == 1) { writer.printf("  %08x ".format(inst_fetch_rddata)) }
       else                     { writer.printf("           ") }
       writer.printf("|")
-
-      val reg_wren   = peek(cpu_tb.io.dbg_monitor.reg_wren)
-      val reg_wraddr : Long = peek(cpu_tb.io.dbg_monitor.reg_wraddr).toLong
-      val reg_wrdata : Long = peek(cpu_tb.io.dbg_monitor.reg_wrdata).toLong
 
       val alu_rdata0  : Long = peek (cpu_tb.io.dbg_monitor.alu_rdata0).toLong
       val alu_reg_rs0 = peek (cpu_tb.io.dbg_monitor.alu_reg_rs0).toLong
@@ -87,10 +91,14 @@ class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename:
       }
       writer.printf("|")
 
-      if (reg_wren == 1) {
-        writer.printf("x%02d<=0x%016x ".format(reg_wraddr, reg_wrdata))
+      val csr_cmd          = peek(cpu_tb.io.dbg_monitor.csr_cmd  )
+      val csr_addr         = peek(cpu_tb.io.dbg_monitor.csr_addr )
+      val csr_wdata : Long = peek(cpu_tb.io.dbg_monitor.csr_wdata).toLong
+
+      if (csr_cmd != 0) {
+        writer.printf("CSR[%03x]<=%016x|".format(csr_addr, csr_wdata))
       } else {
-        writer.printf("                        ")
+        writer.printf("                          |")
       }
 
       val data_bus_req    = peek(cpu_tb.io.dbg_monitor.data_bus_req)
@@ -117,6 +125,16 @@ class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename:
         writer.printf("|X%02d<=0x%016x|".format(mem_inst_rd, mem_alu_res))
       } else {
         writer.printf("|                       |")
+      }
+
+      val reg_wren   = peek(cpu_tb.io.dbg_monitor.reg_wren)
+      val reg_wraddr : Long = peek(cpu_tb.io.dbg_monitor.reg_wraddr).toLong
+      val reg_wrdata : Long = peek(cpu_tb.io.dbg_monitor.reg_wrdata).toLong
+
+      if (reg_wren == 1) {
+        writer.printf("x%02d<=0x%016x ".format(reg_wraddr, reg_wrdata))
+      } else {
+        writer.printf("                        ")
       }
 
       if (inst_valid == 1) {

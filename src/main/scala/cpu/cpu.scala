@@ -13,6 +13,8 @@ class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
   val inst_fetch_ack    = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
   val inst_fetch_rddata = if (conf.debug == true) Output(SInt(32.W)) else Output(SInt(0.W))
 
+  val pc_update_cause = if(conf.debug == true) Output(UInt(3.W)) else Output(UInt(0.W))
+
   val inst_valid = if (conf.debug == true) Output(Bool())            else Output(UInt(0.W))
   val inst_addr  = if (conf.debug == true) Output(UInt(32.W))        else Output(UInt(0.W))
   val inst_hex   = if (conf.debug == true) Output(UInt(32.W))        else Output(UInt(0.W))
@@ -31,6 +33,11 @@ class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
   val mem_inst_valid = if (conf.debug == true) Output(Bool())            else Output(UInt(0.W))
   val mem_inst_rd    = if (conf.debug == true) Output(UInt(5.W))         else Output(UInt(0.W))
   val mem_alu_res    = if (conf.debug == true) Output(SInt(conf.xlen.W)) else Output(SInt(0.W))
+
+  // CSRFile
+  val csr_cmd   = if (conf.debug == true) Output(UInt(CSR.CSRCMD_SZ)) else Output(UInt(0.W))
+  val csr_addr  = if (conf.debug == true) Output(UInt(12.W))          else Output(UInt(0.W))
+  val csr_wdata = if (conf.debug == true) Output(UInt(conf.xlen.W))   else Output(UInt(0.W))
 
   // DataBus
   val data_bus_req    = if (conf.debug == true) Output(Bool())            else Output(UInt(0.W))
@@ -86,7 +93,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val u_regs     = Module (new Regs(conf))
   val u_alu      = Module (new Alu(conf))
   val u_mem_sext = Module (new SExt(conf))
-  val u_csrfile  = Module (new CsrFile)
+  val u_csrfile  = Module (new CsrFile(conf))
 
   val if_inst_addr = RegInit(0.U(conf.bus_width.W))
   val if_inst_en   = RegInit(false.B)
@@ -107,17 +114,18 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val dec_imm_j      = Cat(dec_inst_data(31), dec_inst_data(19,12), dec_inst_data(20), dec_inst_data(30,21), 0.U(1.W))
   val dec_imm_j_sext = Cat(Fill(64-21, dec_imm_j(20)), dec_imm_j, 0.U(1.W))
 
-  val dec_reg_op0 = Wire(SInt(conf.xlen.W))
-  val dec_reg_op1 = Wire(SInt(conf.xlen.W))
+  val dec_rdata_op0 = Wire(SInt(conf.xlen.W))
+  val dec_rdata_op1 = Wire(SInt(conf.xlen.W))
 
   val dec_inst_wb_en = u_cpath.io.ctl.wb_en
 
-  val dec_jalr_en  = u_cpath.io.ctl.jalr
-  val dec_jal_en   = u_cpath.io.ctl.jal
-  val dec_br_en    = u_cpath.io.ctl.br
-  val dec_mret_en  = (u_cpath.io.ctl.wbcsr === CSR.Mret)
-  val dec_ecall_en = (u_cpath.io.ctl.wbcsr === CSR.Inst)
-  val dec_jump_en  = dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en
+  val dec_jalr_en   = u_cpath.io.ctl.jalr
+  val dec_jal_en    = u_cpath.io.ctl.jal
+  val dec_br_en     = u_cpath.io.ctl.br
+  val dec_csr_wbcsr = u_cpath.io.ctl.wbcsr
+  val dec_mret_en   = (dec_csr_wbcsr === CSR.Mret)
+  val dec_ecall_en  = (dec_csr_wbcsr === CSR.Inst)
+  val dec_jump_en   = dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en
 
   val wb_mem_rdval = Wire(SInt(conf.xlen.W))
 
@@ -125,8 +133,6 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val ex_inst_data  = RegNext(dec_inst_data)
   val ex_inst_addr  = RegNext(dec_inst_addr)
 
-  val ex_reg_op0  = RegNext (dec_reg_op0)
-  val ex_reg_op1  = RegNext (dec_reg_op1)
   val ex_inst_rs0 = RegNext (dec_inst_rs1)
   val ex_inst_rs1 = RegNext (dec_inst_rs2)
   val ex_alu_func = RegNext (u_cpath.io.ctl.alu_fun)
@@ -154,7 +160,10 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val ex_ctrl_mem_v    = RegNext (u_cpath.io.ctl.mem_v)
   val ex_ctrl_mem_cmd  = RegNext (u_cpath.io.ctl.mem_cmd)
   val ex_ctrl_mem_type = RegNext (u_cpath.io.ctl.mem_type)
-  val ex_rdata_op1     = RegNext (dec_reg_op1)
+  val ex_rdata_op0     = RegNext (dec_rdata_op0)
+  val ex_rdata_op1     = RegNext (dec_rdata_op1)
+  val ex_csr_wbcsr     = RegNext (dec_csr_wbcsr)
+
 
   //
   // Memory Access Stage Signals
@@ -167,9 +176,12 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val mem_inst_wb_en = RegNext (ex_inst_wb_en)
   val mem_alu_res    = RegNext (u_alu.io.res)
 
+  val mem_imm_i      = RegNext (ex_imm_i)
+
   val mem_ctrl_mem_v    = RegNext (ex_ctrl_mem_v)
   val mem_ctrl_mem_cmd  = RegNext (ex_ctrl_mem_cmd)
   val mem_ctrl_mem_type = RegNext (ex_ctrl_mem_type)
+  val mem_rdata_op0     = RegNext (ex_rdata_op0)
   val mem_rdata_op1     = RegNext (ex_rdata_op1)
 
   val mem_jalr_en   = RegNext (ex_jalr_en)
@@ -177,6 +189,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val mem_br_en     = RegNext (ex_br_en)
   val mem_mret_en   = RegNext (ex_mret_en)
   val mem_ecall_en  = RegNext (ex_ecall_en)
+  val mem_csr_wbcsr = RegNext (ex_csr_wbcsr)
 
   //
   // WB-Stage Signals
@@ -186,43 +199,49 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val wb_inst_data  = RegNext (mem_inst_data)
   val wb_inst_addr  = RegNext (mem_inst_addr)
 
+  val wb_rdata_op0  = RegNext (mem_rdata_op0)
+  val wb_rdata_op1  = RegNext (mem_rdata_op1)
+
   val wb_inst_wb_en = RegNext (mem_inst_wb_en)
   val wb_inst_rd    = RegNext (mem_inst_rd)
 
   val wb_alu_res    = RegNext (mem_alu_res)
+
+  val wb_imm_i      = RegNext (mem_imm_i)
 
   val wb_jalr_en   = RegNext (mem_jalr_en)
   val wb_jal_en    = RegNext (mem_jal_en)
   val wb_br_en     = RegNext (mem_br_en)
   val wb_mret_en   = RegNext (mem_mret_en)
   val wb_ecall_en  = RegNext (mem_ecall_en)
+  val wb_csr_wbcsr = RegNext (mem_csr_wbcsr)
 
   if_inst_en := io.run
 
   if_inst_addr := MuxCase (0.U, Array (
-    (ex_inst_valid & ex_jalr_en)      -> u_alu.io.res.asUInt,
-    (ex_inst_valid & ex_jal_en)       -> (ex_inst_addr + ex_imm_j),
-    (ex_inst_valid & ex_br_jump)      -> (ex_inst_addr + ex_imm_b_sext),
-    (ex_inst_valid & ex_mret_en)      -> u_csrfile.io.mepc,
-    (ex_inst_valid & ex_ecall_en)     -> u_csrfile.io.mtvec,
-    (if_inst_en)                      -> (if_inst_addr + 4.U)
+    (ex_inst_valid & ex_jalr_en)  -> u_alu.io.res.asUInt,
+    (ex_inst_valid & ex_jal_en)   -> (ex_inst_addr + ex_imm_j),
+    (ex_inst_valid & ex_br_jump)  -> (ex_inst_addr + ex_imm_b_sext),
+    (ex_inst_valid & ex_mret_en)  -> u_csrfile.io.mepc,
+    (ex_inst_valid & ex_ecall_en) -> u_csrfile.io.mtvec,
+    (if_inst_en)                  -> (if_inst_addr + 4.U)
   ))
 
   // if (conf.debug == true) {
   //   when (if_inst_en & dec_jalr_en) {
-  //     printf("%d : JALR is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //     printf("%d : JALR is enable %x, %x\n", cycle, dec_rdata_op0.asUInt, if_inst_addr)
   //   }
   //   when (if_inst_en & dec_jal_en) {
-  //     printf("%d : JAL  is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //     printf("%d : JAL  is enable %x, %x\n", cycle, dec_rdata_op0.asUInt, if_inst_addr)
   //   }
   //   when (if_inst_en & dec_br_en) {
-  //     printf("%d : BR   is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //     printf("%d : BR   is enable %x, %x\n", cycle, dec_rdata_op0.asUInt, if_inst_addr)
   //   }
   //   when (if_inst_en & dec_mret_en) {
-  //     printf("%d : MRET is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //     printf("%d : MRET is enable %x, %x\n", cycle, dec_rdata_op0.asUInt, if_inst_addr)
   //   }
   //   when (if_inst_en & dec_ecall_en) {
-  //     printf("%d : ECAL is enable %x, %x\n", cycle, dec_reg_op0.asUInt, if_inst_addr)
+  //     printf("%d : ECAL is enable %x, %x\n", cycle, dec_rdata_op0.asUInt, if_inst_addr)
   //   }
   // }
 
@@ -243,18 +262,17 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
 
   u_regs.io.rden0   := true.B
   u_regs.io.rdaddr0 := dec_inst_rs1
-  dec_reg_op0       := u_regs.io.rddata0
+  dec_rdata_op0     := u_regs.io.rddata0
 
   u_regs.io.rden1   := true.B
   u_regs.io.rdaddr1 := dec_inst_rs2
-  when(u_cpath.io.ctl.wbcsr =/= CSR.X) {
-    dec_reg_op1       := u_csrfile.io.rw.rdata.asSInt
+  when(dec_csr_wbcsr =/= CSR.X) {
+    dec_rdata_op1   := u_csrfile.io.rw.rdata.asSInt
   } .otherwise {
-    dec_reg_op1       := u_regs.io.rddata1
+    dec_rdata_op1   := u_regs.io.rddata1
   }
 
   ex_alu_op0 := 0.S
-
   switch(ex_op0_sel) {
     is (OP0_RS1) {
       // Register Forwarding
@@ -263,7 +281,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
       } .elsewhen (wb_inst_valid & wb_inst_wb_en & (wb_inst_rd === ex_inst_rs0)) {
         ex_alu_op0 := wb_alu_res
       } .otherwise {
-        ex_alu_op0 := ex_reg_op0
+        ex_alu_op0 := ex_rdata_op0
       }
     }
     is (OP0_IMU) { ex_alu_op0 := Cat(ex_inst_data(31, 12), Fill(12,0.U)).asSInt }
@@ -280,7 +298,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
       } .elsewhen (wb_inst_valid & wb_inst_wb_en & (wb_inst_rd === ex_inst_rs1)) {
         ex_alu_op1 := wb_alu_res
       } .otherwise {
-        ex_alu_op1 := ex_reg_op1
+        ex_alu_op1 := ex_rdata_op1
       }
     }
     is (OP1_IMI) { ex_alu_op1 := Cat(Fill(20,ex_imm_i(11)), ex_imm_i).asSInt }
@@ -317,18 +335,33 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   u_mem_sext.io.ext_type := u_cpath.io.ctl.mem_type
   wb_mem_rdval           := u_mem_sext.io.out_val
 
-  /* CSR Port */
-  u_csrfile.io.rw.cmd   := u_cpath.io.ctl.wbcsr
-  u_csrfile.io.rw.addr  := dec_imm_i.asUInt
-  u_csrfile.io.rw.wdata := u_regs.io.rddata0.asUInt
-  u_csrfile.io.ecall_inst := dec_ecall_en
+  //
+  // CSR Port
+  //
+  u_csrfile.io.rw.cmd     := ex_csr_wbcsr
+  u_csrfile.io.rw.addr    := ex_imm_i.asUInt
+  u_csrfile.io.rw.wdata   := ex_alu_op0.asUInt
+  u_csrfile.io.ecall_inst := ex_ecall_en
 
   if (conf.debug == true) {
+
+    val debug_pc_update_cause = Wire(UInt(3.W))
+    debug_pc_update_cause := MuxCase (0.U, Array (
+      (ex_inst_valid & ex_jalr_en)  -> 1.U,
+      (ex_inst_valid & ex_jal_en)   -> 2.U,
+      (ex_inst_valid & ex_br_jump)  -> 3.U,
+      (ex_inst_valid & ex_mret_en)  -> 4.U,
+      (ex_inst_valid & ex_ecall_en) -> 5.U,
+      (if_inst_en)                  -> 6.U
+    ))
+
     /* Debug-Port */
     io.dbg_monitor.inst_fetch_req    := io.inst_bus.req
     io.dbg_monitor.inst_fetch_addr   := io.inst_bus.addr
     io.dbg_monitor.inst_fetch_ack    := io.inst_bus.ack
     io.dbg_monitor.inst_fetch_rddata := io.inst_bus.rddata
+
+    io.dbg_monitor.pc_update_cause := debug_pc_update_cause
 
     io.dbg_monitor.inst_valid := wb_inst_valid
     io.dbg_monitor.inst_addr  := wb_inst_addr
@@ -337,6 +370,10 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
     io.dbg_monitor.reg_wren   := u_regs.io.wren
     io.dbg_monitor.reg_wraddr := u_regs.io.wraddr
     io.dbg_monitor.reg_wrdata := u_regs.io.wrdata
+
+    io.dbg_monitor.csr_cmd   := dec_csr_wbcsr
+    io.dbg_monitor.csr_addr  := dec_imm_i.asUInt
+    io.dbg_monitor.csr_wdata := dec_rdata_op0.asUInt
 
     io.dbg_monitor.alu_rdata0  := u_alu.io.op0
     io.dbg_monitor.alu_reg_rs0 := Mux(ex_op0_sel === OP0_RS1, ex_inst_rs0, 0.U)

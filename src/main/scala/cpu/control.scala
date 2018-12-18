@@ -5,6 +5,8 @@ import chisel3.util._
 
 import Instructions._
 import DecodeConsts._
+import CSR._
+
 
 object CtlIdx
 {
@@ -29,14 +31,14 @@ class CtrlSignals extends Bundle()
   val exe_kill   = Output(Bool())    // squash EX stage (exception/mret occurred)
   val pc_sel     = Output(UInt(3.W))
   val brjmp_sel  = Output(Bool())
-  val op0_sel    = Output(UInt(2.W))
-  val op1_sel    = Output(UInt(2.W))
+  val op0_sel    = Output(UInt(OP0_SZ))
+  val op1_sel    = Output(UInt(OP1_SZ))
   val alu_fun    = Output(UInt(ALU_OP_SIZE))
   // val wb_en      = Output(UInt(2.W))
   val wb_en      = Output(Bool())
   val rf_wen     = Output(Bool())
   val bypassable = Output(Bool())     // instruction's result can be bypassed
-  val wbcsr      = Output(UInt(3.W))
+  val wbcsr      = Output(UInt(CSRCMD_SZ))
   val jal        = Output(Bool())
   val jalr       = Output(Bool())
   val br         = Output(Bool())

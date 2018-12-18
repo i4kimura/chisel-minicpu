@@ -6,27 +6,15 @@ import collection.mutable.LinkedHashMap
 import chisel3.Bool
 
 
-class CsrFileIo extends Bundle {
-  val rw = new Bundle {
-    val cmd   = Input(UInt(2.W))
-    val addr  = Input(UInt(12.W))
-    val rdata = Output(UInt(64.W))
-    val wdata = Input(UInt(64.W))
-  }
-  val ecall_inst = Input(Bool())
-  val mepc  = Output(UInt(64.W))
-  val mtvec = Output(UInt(64.W))
-}
-
-
 object CSR
 {
-  val X     = 0.U(3.W)
-  val Exch  = 1.U(3.W)
-  val Set   = 2.U(3.W)
-  val Clear = 3.U(3.W)
-  val Inst  = 4.U(3.W)
-  val Mret  = 5.U(3.W)
+  val CSRCMD_SZ = 3.W
+  val X     = 0.U(CSRCMD_SZ)
+  val Exch  = 1.U(CSRCMD_SZ)
+  val Set   = 2.U(CSRCMD_SZ)
+  val Clear = 3.U(CSRCMD_SZ)
+  val Inst  = 4.U(CSRCMD_SZ)
+  val Mret  = 5.U(CSRCMD_SZ)
 }
 
 
@@ -36,6 +24,19 @@ object PRV
   val S = 1.U(2.W)
   val H = 2.U(2.W)
   val M = 3.U(2.W)
+}
+
+
+class CsrFileIo [Conf <: RVConfig](conf: Conf) extends Bundle {
+  val rw = new Bundle {
+    val cmd   = Input(UInt(CSR.CSRCMD_SZ))
+    val addr  = Input(UInt(12.W))
+    val rdata = Output(UInt(conf.xlen.W))
+    val wdata = Input(UInt(conf.xlen.W))
+  }
+  val ecall_inst = Input(Bool())
+  val mepc  = Output(UInt(conf.xlen.W))
+  val mtvec = Output(UInt(conf.xlen.W))
 }
 
 
@@ -87,31 +88,31 @@ class MIP extends Bundle {
 }
 
 
-class CsrFile extends Module
+class CsrFile [Conf <: RVConfig](conf: Conf) extends Module
 {
-  val io = IO(new CsrFileIo)
+  val io = IO(new CsrFileIo(conf))
 
   val reset_mstatus = WireInit(0.U.asTypeOf(new MStatus()))
   reset_mstatus.mpp := PRV.M
   reset_mstatus.prv := PRV.M
   val reg_mstatus = RegInit(reset_mstatus)
-  val reg_mepc = Reg(UInt(64.W))
-  val reg_mcause = Reg(UInt(64.W))
-  val reg_mtval = Reg(UInt(64.W))
-  val reg_mscratch = Reg(UInt(64.W))
-  val reg_mtimecmp = Reg(UInt(64.W))
-  val reg_medeleg = Reg(UInt(64.W))
+  val reg_mepc = Reg(UInt(conf.xlen.W))
+  val reg_mcause = Reg(UInt(conf.xlen.W))
+  val reg_mtval = Reg(UInt(conf.xlen.W))
+  val reg_mscratch = Reg(UInt(conf.xlen.W))
+  val reg_mtimecmp = Reg(UInt(conf.xlen.W))
+  val reg_medeleg = Reg(UInt(conf.xlen.W))
 
   val reg_mip = RegInit(0.U.asTypeOf(new MIP()))
   val reg_mie = RegInit(0.U.asTypeOf(new MIP()))
   val reg_wfi = RegInit(false.B)
-  val reg_mtvec = Reg(UInt(64.W))
+  val reg_mtvec = Reg(UInt(conf.xlen.W))
 
   // val reg_time = WideCounter(64)
   // val reg_instret = WideCounter(64, io.retire)
 
   val reg_mcounteren = Reg(UInt(32.W))
-  //val reg_hpmevent = io.counters.map(c => Reg(init = 0.asUInt(64.W)))
+  //val reg_hpmevent = io.counters.map(c => Reg(init = 0.asUInt(conf.xlen.W)))
   //(io.counters zip reg_hpmevent) foreach { case (c, e) => c.eventSel := e }
   // val reg_hpmcounter = io.counters.map(c => WideCounter(CSR.hpmWidth, c.inc, reset = false))
 
@@ -119,8 +120,8 @@ class CsrFile extends Module
   reg_mstatus.prv := new_prv
 
   val reg_debug = RegInit(false.B)
-  val reg_dpc = Reg(UInt(64.W))
-  val reg_dscratch = Reg(UInt(64.W))
+  val reg_dpc = Reg(UInt(conf.xlen.W))
+  val reg_dscratch = Reg(UInt(conf.xlen.W))
   val reg_singleStepped = Reg(Bool())
   // val reset_dcsr = WireInit(0.U.asTypeOf(new DCSR()))
   // reset_dcsr.xdebugver := 1

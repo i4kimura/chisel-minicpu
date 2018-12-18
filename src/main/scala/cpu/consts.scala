@@ -20,19 +20,19 @@ object DecodeConsts
   val N      = false.B
 
   // RS1 Operand Select Signal
-  val OP0_SIZE = 2.W
-  def OP0_RS1 = 0.U(OP0_SIZE) // Register Source #1
-  def OP0_IMU = 1.U(OP0_SIZE) // immediate, U-type
-  def OP0_IMZ = 2.U(OP0_SIZE) // Zero-extended rs1 field of inst, for CSRI instructions
-  def OP0_X   = 0.U(OP0_SIZE)
+  val OP0_SZ = 2.W
+  def OP0_RS1 = 0.U(OP0_SZ) // Register Source #1
+  def OP0_IMU = 1.U(OP0_SZ) // immediate, U-type
+  def OP0_IMZ = 2.U(OP0_SZ) // Zero-extended rs1 field of inst, for CSRI instructions
+  def OP0_X   = 0.U(OP0_SZ)
 
   // RS2 Operand Select Signal
-  val OP1_SIZE = 2.W
-  def OP1_RS2 = 0.U(OP1_SIZE) // Register Source #2
-  def OP1_IMI = 1.U(OP1_SIZE) // immediate, I-type
-  def OP1_IMS = 2.U(OP1_SIZE) // immediate, S-type
-  def OP1_PC  = 3.U(OP1_SIZE) // PC
-  def OP1_X   = 0.U(OP1_SIZE)
+  val OP1_SZ = 2.W
+  def OP1_RS2 = 0.U(OP1_SZ) // Register Source #2
+  def OP1_IMI = 1.U(OP1_SZ) // immediate, I-type
+  def OP1_IMS = 2.U(OP1_SZ) // immediate, S-type
+  def OP1_PC  = 3.U(OP1_SZ) // PC
+  def OP1_X   = 0.U(OP1_SZ)
 
   // ALU Operation Signal
   val ALU_OP_SIZE = 5.W
