@@ -117,7 +117,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val dec_rdata_op0 = Wire(SInt(conf.xlen.W))
   val dec_rdata_op1 = Wire(SInt(conf.xlen.W))
 
-  val dec_inst_wb_en = u_cpath.io.ctl.wb_en
+  val dec_inst_wb_en = u_cpath.io.ctl.wb_en & (dec_inst_rd =/= 0.U)
 
   val dec_jalr_en   = u_cpath.io.ctl.jalr
   val dec_jal_en    = u_cpath.io.ctl.jal
@@ -164,6 +164,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val ex_rdata_op1     = RegNext (dec_rdata_op1)
   val ex_csr_wbcsr     = RegNext (dec_csr_wbcsr)
 
+  val ex_mem_val = Wire(SInt(conf.xlen.W))
 
   //
   // Memory Access Stage Signals
@@ -183,6 +184,8 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val mem_ctrl_mem_type = RegNext (ex_ctrl_mem_type)
   val mem_rdata_op0     = RegNext (ex_rdata_op0)
   val mem_rdata_op1     = RegNext (ex_rdata_op1)
+
+  val mem_mem_val = RegNext (ex_mem_val)
 
   val mem_jalr_en   = RegNext (ex_jalr_en)
   val mem_jal_en    = RegNext (ex_jal_en)
@@ -266,11 +269,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
 
   u_regs.io.rden1   := true.B
   u_regs.io.rdaddr1 := dec_inst_rs2
-  when(dec_csr_wbcsr =/= CSR.X) {
-    dec_rdata_op1   := u_csrfile.io.rw.rdata.asSInt
-  } .otherwise {
-    dec_rdata_op1   := u_regs.io.rddata1
-  }
+  dec_rdata_op1     := u_regs.io.rddata1
 
   ex_alu_op0 := 0.S
   switch(ex_op0_sel) {
@@ -297,12 +296,22 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
         ex_alu_op1 := mem_alu_res
       } .elsewhen (wb_inst_valid & wb_inst_wb_en & (wb_inst_rd === ex_inst_rs1)) {
         ex_alu_op1 := wb_alu_res
+      } .elsewhen (ex_csr_wbcsr =/= CSR.X) {
+        ex_alu_op1 := u_csrfile.io.rw.rdata.asSInt
       } .otherwise {
         ex_alu_op1 := ex_rdata_op1
       }
     }
     is (OP1_IMI) { ex_alu_op1 := Cat(Fill(20,ex_imm_i(11)), ex_imm_i).asSInt }
     is (OP1_IMS) { ex_alu_op1 := Cat(Fill(20,ex_imm_s(11)), ex_imm_s).asSInt }
+  }
+
+  when (mem_inst_valid & mem_inst_wb_en & (mem_inst_rd === ex_inst_rs1)) {
+    ex_mem_val := mem_alu_res
+  } .elsewhen (wb_inst_valid & wb_inst_wb_en & (wb_inst_rd === ex_inst_rs1)) {
+    ex_mem_val := wb_alu_res
+  } .otherwise {
+    ex_mem_val := ex_rdata_op1
   }
 
   //
@@ -315,8 +324,8 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   io.data_bus.req    := mem_ctrl_mem_v
   io.data_bus.cmd    := mem_ctrl_mem_cmd
   io.data_bus.size   := mem_ctrl_mem_type
-  io.data_bus.addr   := u_alu.io.res.asUInt
-  io.data_bus.wrdata := ex_rdata_op1
+  io.data_bus.addr   := mem_alu_res.asUInt
+  io.data_bus.wrdata := mem_mem_val
 
   //
   // WB-Stage Signals
@@ -371,9 +380,9 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
     io.dbg_monitor.reg_wraddr := u_regs.io.wraddr
     io.dbg_monitor.reg_wrdata := u_regs.io.wrdata
 
-    io.dbg_monitor.csr_cmd   := dec_csr_wbcsr
-    io.dbg_monitor.csr_addr  := dec_imm_i.asUInt
-    io.dbg_monitor.csr_wdata := dec_rdata_op0.asUInt
+    io.dbg_monitor.csr_cmd   := ex_csr_wbcsr
+    io.dbg_monitor.csr_addr  := ex_imm_i.asUInt
+    io.dbg_monitor.csr_wdata := ex_alu_op0.asUInt
 
     io.dbg_monitor.alu_rdata0  := u_alu.io.op0
     io.dbg_monitor.alu_reg_rs0 := Mux(ex_op0_sel === OP0_RS1, ex_inst_rs0, 0.U)

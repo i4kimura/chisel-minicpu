@@ -28,14 +28,14 @@ class Regs [Conf <: RVConfig](conf: Conf) extends Module {
   // val r_regs = RegInit( Vec(32, SInt(conf.xlen.W)).asTypeOf(0.U) )
   val r_regs = Mem(32, SInt(conf.xlen.W))
 
-  when (io.rden0 && (io.rdaddr0 =/= 0.U(64.W))) {
-    io.rddata0 := r_regs(io.rdaddr0)
+  when (io.rden0 && (io.rdaddr0 =/= 0.U)) {
+    io.rddata0 := Mux (io.wraddr === io.rdaddr0, io.wrdata, r_regs(io.rdaddr0))
   } .otherwise {
     io.rddata0 := 0.S(64.W)
   }
 
-  when (io.rden1 && (io.rdaddr1 =/= 0.U(64.W))) {
-    io.rddata1 := r_regs(io.rdaddr1)
+  when (io.rden1 && (io.rdaddr1 =/= 0.U)) {
+    io.rddata1 := Mux (io.wraddr === io.rdaddr1, io.wrdata, r_regs(io.rdaddr1))
   } .otherwise {
     io.rddata1 := 0.S(64.W)
   }
