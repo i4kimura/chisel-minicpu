@@ -22,7 +22,7 @@ class Memory [Conf <: RVConfig](conf: Conf) extends Module {
 
   for (bank <- 0 until 8) {
 
-    val memory = Mem(math.pow(2, conf.bus_width).toInt , UInt(8.W))
+    val memory = Mem(math.pow(2, conf.bus_width + 2).toInt , UInt(8.W))
 
     val bank_idx = bank.U(3.W)
 
@@ -30,6 +30,7 @@ class Memory [Conf <: RVConfig](conf: Conf) extends Module {
       val data_msb = (bank & 0x3)*8+7
       val data_lsb = (bank & 0x3)*8+0
       when(io.ext_bus.addr(0) === bank_idx(2)) {
+        // printf("Load Memory : %x <= %x\n", io.ext_bus.addr(conf.bus_width-1, 0), io.ext_bus.data(data_msb, data_lsb))
         memory(io.ext_bus.addr(conf.bus_width-1, 1)) := io.ext_bus.data(data_msb, data_lsb)
       }
     }
@@ -39,6 +40,9 @@ class Memory [Conf <: RVConfig](conf: Conf) extends Module {
 
     /* Data Bus */
     data_rd_data(bank) := memory(io.data_bus.addr(conf.bus_width-1, 3))
+    // when (io.data_bus.req === true.B && io.data_bus.cmd === MCMD_RD) {
+    //   printf("Load Memory : %x <= %x\n", io.data_bus.addr(conf.bus_width-1, 0), data_rd_data(bank))
+    // }
 
     val data_msb = bank * 8 + 7
     val data_lsb = bank * 8 + 0
@@ -49,7 +53,6 @@ class Memory [Conf <: RVConfig](conf: Conf) extends Module {
         }
         is (MT_W) {
           when (io.data_bus.addr(2) === bank_idx(2)) {
-            // printf("Write MT_W : %x <= %x\n", io.data_bus.addr(conf.bus_width-1, 3), io.data_bus.wrdata(data_msb, data_lsb))
             memory(io.data_bus.addr(conf.bus_width-1, 3)) := io.data_bus.wrdata((bank & 0x3)*8+7, (bank & 0x3)*8+0)
           }
         }

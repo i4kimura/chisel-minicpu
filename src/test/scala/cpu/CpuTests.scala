@@ -52,7 +52,7 @@ class CpuTopTests [Conf <: RVConfig](c: CpuTop[Conf], hexname: String, pipename:
   breakable {
     for (cycle <- 0 to 4096) {
       if ((cycle % 32) == 0) {
-        writer.printf("  cycle    :           IF           |               EX_STAGE_REG_READ                  |      EX_CSR_UPDATE       |                   MEM_STAGE_MEM_ACCESS                |        WB_STAGE       |\n")
+        writer.printf("  cycle    :           IF           |               EX_STAGE_REG_READ                  |      EX_CSR_UPDATE       |                   MEM_STAGE_MEM_ACCESS                |        WB_STAGE\n")
       }
 
       val inst_valid = peek(cpu_tb.io.dbg_monitor.inst_valid)

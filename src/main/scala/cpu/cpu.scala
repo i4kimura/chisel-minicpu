@@ -8,16 +8,16 @@ import DecodeConsts._
 
 
 class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
-  val inst_fetch_req    = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
-  val inst_fetch_addr   = if (conf.debug == true) Output(UInt(32.W)) else Output(UInt(0.W))
-  val inst_fetch_ack    = if (conf.debug == true) Output(Bool())     else Output(UInt(0.W))
-  val inst_fetch_rddata = if (conf.debug == true) Output(SInt(32.W)) else Output(SInt(0.W))
+  val inst_fetch_req    = if (conf.debug == true) Output(Bool())                 else Output(UInt(0.W))
+  val inst_fetch_addr   = if (conf.debug == true) Output(UInt(conf.bus_width.W)) else Output(UInt(0.W))
+  val inst_fetch_ack    = if (conf.debug == true) Output(Bool())                 else Output(UInt(0.W))
+  val inst_fetch_rddata = if (conf.debug == true) Output(SInt(32.W))             else Output(SInt(0.W))
 
   val pc_update_cause = if(conf.debug == true) Output(UInt(3.W)) else Output(UInt(0.W))
 
-  val inst_valid = if (conf.debug == true) Output(Bool())            else Output(UInt(0.W))
-  val inst_addr  = if (conf.debug == true) Output(UInt(32.W))        else Output(UInt(0.W))
-  val inst_hex   = if (conf.debug == true) Output(UInt(32.W))        else Output(UInt(0.W))
+  val inst_valid = if (conf.debug == true) Output(Bool())                  else Output(UInt(0.W))
+  val inst_addr  = if (conf.debug == true) Output(UInt(conf.bus_width.W))  else Output(UInt(0.W))
+  val inst_hex   = if (conf.debug == true) Output(UInt(32.W))              else Output(UInt(0.W))
 
   val reg_wren   = if (conf.debug == true) Output(Bool())            else Output(UInt(0.W))
   val reg_wraddr = if (conf.debug == true) Output(UInt(5.W))         else Output(UInt(0.W))
@@ -40,12 +40,12 @@ class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
   val csr_wdata = if (conf.debug == true) Output(UInt(conf.xlen.W))   else Output(UInt(0.W))
 
   // DataBus
-  val data_bus_req    = if (conf.debug == true) Output(Bool())            else Output(UInt(0.W))
-  val data_bus_cmd    = if (conf.debug == true) Output(UInt(2.W))         else Output(UInt(0.W))
-  val data_bus_addr   = if (conf.debug == true) Output(UInt(32.W))        else Output(UInt(0.W))
-  val data_bus_wrdata = if (conf.debug == true) Output(SInt(conf.xlen.W)) else Output(SInt(0.W))
-  val data_bus_ack    = if (conf.debug == true) Output(Bool())            else Output(UInt(0.W))
-  val data_bus_rddata = if (conf.debug == true) Output(SInt(conf.xlen.W)) else Output(SInt(0.W))
+  val data_bus_req    = if (conf.debug == true) Output(Bool())                 else Output(UInt(0.W))
+  val data_bus_cmd    = if (conf.debug == true) Output(UInt(2.W))              else Output(UInt(0.W))
+  val data_bus_addr   = if (conf.debug == true) Output(UInt(conf.bus_width.W)) else Output(UInt(0.W))
+  val data_bus_wrdata = if (conf.debug == true) Output(SInt(conf.xlen.W))      else Output(SInt(0.W))
+  val data_bus_ack    = if (conf.debug == true) Output(Bool())                 else Output(UInt(0.W))
+  val data_bus_rddata = if (conf.debug == true) Output(SInt(conf.xlen.W))      else Output(SInt(0.W))
 }
 
 class CpuTopIo [Conf <: RVConfig](conf: Conf) extends Bundle {
@@ -219,6 +219,9 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val wb_ecall_en  = RegNext (mem_ecall_en)
   val wb_csr_wbcsr = RegNext (mem_csr_wbcsr)
 
+  val wb_ctrl_mem_cmd  = RegNext (mem_ctrl_mem_cmd)
+  val wb_ctrl_mem_type = RegNext (mem_ctrl_mem_type)
+
   if_inst_en := io.run
 
   if_inst_addr := MuxCase (0.U, Array (
@@ -334,14 +337,14 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   u_regs.io.wraddr := wb_inst_rd
   when ((wb_jal_en === Y) | (wb_jalr_en === Y)) {
     u_regs.io.wrdata := wb_inst_addr.asSInt + 4.S
-  } .elsewhen (u_cpath.io.ctl.mem_cmd =/= MCMD_X) {
+  } .elsewhen (wb_ctrl_mem_cmd === MCMD_RD) {
     u_regs.io.wrdata := wb_mem_rdval
   } .otherwise {
     u_regs.io.wrdata := wb_alu_res
   }
 
   u_mem_sext.io.in_val   := io.data_bus.rddata
-  u_mem_sext.io.ext_type := u_cpath.io.ctl.mem_type
+  u_mem_sext.io.ext_type := wb_ctrl_mem_type
   wb_mem_rdval           := u_mem_sext.io.out_val
 
   //

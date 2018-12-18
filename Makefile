@@ -12,8 +12,11 @@ cpu_verilog:
 mod_verilog:
 	sbt 'runMain mod_test.ParamModTop'
 
-gen_test_class:
+gen_test_class: compile_tests
 	ruby ./gen_test_class.rb
+
+compile_tests:
+	$(MAKE) -C tests/riscv-tests/isa
 
 include rv64ui_test.mk
 
