@@ -143,8 +143,8 @@ class CtlPath extends Module
         EBREAK  -> List(Y, OP0_X  , OP1_X  ,  ALU_COPY1 , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ),
         WFI     -> List(Y, OP0_X  , OP1_X  ,  ALU_COPY1 , Y,  CSR.Inst,  N,   N,     N,    N,      MCMD_X,   MT_X  ), // implemented as a NOP
 
-        FENCE_I -> List(Y, OP0_X  , OP1_X  ,  ALU_X     , N,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  ),
-        FENCE   -> List(Y, OP0_X  , OP1_X  ,  ALU_X     , N,  CSR.X,     N,   N,     N,    N,      MCMD_X,   MT_X  )
+        FENCE_I -> List(Y, OP0_X  , OP1_X  ,  ALU_X     , N,  CSR.X,     N,   N,     N,    N,      MCMD_FE,  MT_X  ),
+        FENCE   -> List(Y, OP0_X  , OP1_X  ,  ALU_X     , N,  CSR.X,     N,   N,     N,    N,      MCMD_FE,  MT_X  )
           // we are already sequentially consistent, so no need to honor the fence instruction
       ))
 

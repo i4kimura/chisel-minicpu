@@ -266,7 +266,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
 
   // Opcode extraction and Register Read
 
-  u_cpath.io.inst := dec_inst_data
+  u_cpath.io.inst := Mux(io.inst_bus.ack, dec_inst_data, 0.U)
 
   u_regs.io.rden0   := true.B
   u_regs.io.rdaddr0 := dec_inst_rs1
