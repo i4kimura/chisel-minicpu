@@ -127,7 +127,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val dec_ecall_en  = (dec_csr_wbcsr === CSR.Inst)
   val dec_jump_en   = dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en
 
-  val dec_stall_en  = u_cpath.io.ctl.mem_cmd =/= MCMD_X
+  val dec_stall_en  = dec_inst_valid & (u_cpath.io.ctl.mem_cmd =/= MCMD_X)
 
   val wb_mem_rdval = Wire(SInt(conf.xlen.W))
 
