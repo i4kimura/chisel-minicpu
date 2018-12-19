@@ -127,6 +127,8 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   val dec_ecall_en  = (dec_csr_wbcsr === CSR.Inst)
   val dec_jump_en   = dec_jalr_en | dec_jal_en | dec_br_en | dec_mret_en
 
+  val dec_stall_en  = u_cpath.io.ctl.mem_cmd =/= MCMD_X
+
   val wb_mem_rdval = Wire(SInt(conf.xlen.W))
 
   val ex_inst_valid = RegNext(dec_inst_valid)
@@ -224,13 +226,13 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
 
   if_inst_en := io.run
 
-  if_inst_addr := MuxCase (0.U, Array (
+  if_inst_addr := MuxCase (if_inst_addr, Array (
     (ex_inst_valid & ex_jalr_en)  -> u_alu.io.res.asUInt,
     (ex_inst_valid & ex_jal_en)   -> (ex_inst_addr + ex_imm_j),
     (ex_inst_valid & ex_br_jump)  -> (ex_inst_addr + ex_imm_b_sext),
     (ex_inst_valid & ex_mret_en)  -> u_csrfile.io.mepc,
     (ex_inst_valid & ex_ecall_en) -> u_csrfile.io.mtvec,
-    (if_inst_en)                  -> (if_inst_addr + 4.U)
+    (if_inst_en & !dec_stall_en)  -> (if_inst_addr + 4.U)
   ))
 
   // if (conf.debug == true) {
@@ -251,7 +253,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   //   }
   // }
 
-  io.inst_bus.req  := if_inst_en & (~ex_jump_en)
+  io.inst_bus.req  := if_inst_en & !(ex_jump_en | dec_stall_en)
   io.inst_bus.addr := if_inst_addr
 
   dec_inst_data := io.inst_bus.rddata.asUInt
@@ -281,7 +283,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
       when (mem_inst_valid & mem_inst_wb_en & (mem_inst_rd === ex_inst_rs0)) {
         ex_alu_op0 := mem_alu_res
       } .elsewhen (wb_inst_valid & wb_inst_wb_en & (wb_inst_rd === ex_inst_rs0)) {
-        ex_alu_op0 := wb_alu_res
+        ex_alu_op0 := Mux (wb_ctrl_mem_cmd === MCMD_RD, wb_mem_rdval, wb_alu_res)
       } .otherwise {
         ex_alu_op0 := ex_rdata_op0
       }
@@ -298,7 +300,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
       when (mem_inst_valid & mem_inst_wb_en & (mem_inst_rd === ex_inst_rs1)) {
         ex_alu_op1 := mem_alu_res
       } .elsewhen (wb_inst_valid & wb_inst_wb_en & (wb_inst_rd === ex_inst_rs1)) {
-        ex_alu_op1 := wb_alu_res
+        ex_alu_op1 := Mux (wb_ctrl_mem_cmd === MCMD_RD, wb_mem_rdval, wb_alu_res)
       } .elsewhen (ex_csr_wbcsr =/= CSR.X) {
         ex_alu_op1 := u_csrfile.io.rw.rdata.asSInt
       } .otherwise {
