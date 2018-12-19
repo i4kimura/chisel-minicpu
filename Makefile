@@ -9,6 +9,9 @@ invididual_tests: gen_test_class
 cpu_verilog:
 	sbt 'runMain cpu.CpuTop'
 
+verilator:
+	sbt 'testOnly cpu.Rtl_AllPattern'
+
 mod_verilog:
 	sbt 'runMain mod_test.ParamModTop'
 

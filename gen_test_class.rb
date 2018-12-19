@@ -76,3 +76,29 @@ hex_list.each{|hex_file|
 fp_all.puts("}\n")
 
 fp_all.close
+
+
+#
+# RtlTestsAllPatterns
+#
+fp_all = File.open("./src/test/scala/cpu/Rtl_AllPatterns.scala", "w")
+
+fp_all.puts("package cpu\n\n")
+fp_all.puts("import chisel3.iotesters\n")
+fp_all.puts("import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}\n")
+
+fp_all.puts("class Rtl_AllPattern extends ChiselFlatSpec {\n")
+fp_all.puts("  val args = Array(\"--backend-name\", \"verilator\")")
+
+hex_list.each{|hex_file|
+  pattern_name = File.basename(hex_file, ".hex").gsub("-", "_")
+
+  fp_all.puts("  \"" + pattern_name + " test using Driver.execute\" should \"be used as an alternative way to run specification\" in {\n")
+  fp_all.puts("    iotesters.Driver.execute(args, () => new CpuTop(new RV64IConfig)) {\n")
+  fp_all.puts("      c => new CpuTopTests(c, \"" + hex_file + "\", \"pipetrace." + pattern_name + ".rtl.log\")\n")
+  fp_all.puts("    } should be (true)\n")
+  fp_all.puts("  }\n")
+}
+fp_all.puts("}\n")
+
+fp_all.close
