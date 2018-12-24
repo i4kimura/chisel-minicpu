@@ -54,40 +54,15 @@ fp.close
 
 
 #
-# CpuTestsAllPatterns
-#
-fp_all = File.open("./src/test/scala/cpu/Test_AllPatterns.scala", "w")
-
-fp_all.puts("package cpu\n\n")
-fp_all.puts("import chisel3.iotesters\n")
-fp_all.puts("import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}\n")
-
-fp_all.puts("class Tester_AllPattern extends ChiselFlatSpec {\n")
-
-hex_list.each{|hex_file|
-  pattern_name = File.basename(hex_file, ".hex").gsub("-", "_")
-
-  fp_all.puts("  \"" + pattern_name + " test using Driver.execute\" should \"be used as an alternative way to run specification\" in {\n")
-  fp_all.puts("    iotesters.Driver.execute(Array(), () => new CpuTop(new RV64IConfig)) {\n")
-  fp_all.puts("      c => new CpuTopTests(c, \"" + hex_file + "\", \"pipetrace." + pattern_name + ".log\")\n")
-  fp_all.puts("    } should be (true)\n")
-  fp_all.puts("  }\n")
-}
-fp_all.puts("}\n")
-
-fp_all.close
-
-
-#
 # Parallel
 #
-fp_all = File.open("./src/test/scala/cpu/Paralell_AllPatterns.scala", "w")
+fp_all = File.open("./src/test/scala/cpu/Paralell_ScalaPatterns.scala", "w")
 
 fp_all.puts("package cpu\n\n")
 fp_all.puts("import chisel3.iotesters\n")
 fp_all.puts("import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}\n")
 
-fp_all.puts("class Parallel_AllPattern extends ChiselFlatSpec {\n")
+fp_all.puts("class Parallel_ScalaPattern extends ChiselFlatSpec {\n")
 fp_all.puts("  val pattern_path = Array (\n")
 hex_list.each_with_index{|hex_file, idx|
   if idx != hex_list.length-1 then
@@ -123,24 +98,41 @@ fp_all.close
 #
 # RtlTestsAllPatterns
 #
-fp_all = File.open("./src/test/scala/cpu/Rtl_AllPatterns.scala", "w")
+fp_all = File.open("./src/test/scala/cpu/Paralell_RtlPatterns.scala", "w")
 
 fp_all.puts("package cpu\n\n")
 fp_all.puts("import chisel3.iotesters\n")
 fp_all.puts("import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}\n")
 
-fp_all.puts("class Rtl_AllPattern extends ChiselFlatSpec {\n")
+fp_all.puts("class Parallel_RtlPattern extends ChiselFlatSpec {\n")
 fp_all.puts("  val args = Array(\"--backend-name\", \"verilator\")")
-
-hex_list.each{|hex_file|
-  pattern_name = File.basename(hex_file, ".hex").gsub("-", "_")
-
-  fp_all.puts("  \"" + pattern_name + " test using Driver.execute\" should \"be used as an alternative way to run specification\" in {\n")
-  fp_all.puts("    iotesters.Driver.execute(args, () => new CpuTop(new RV64IConfig)) {\n")
-  fp_all.puts("      c => new CpuTopTests(c, \"" + hex_file + "\", \"pipetrace." + pattern_name + ".rtl.log\")\n")
-  fp_all.puts("    } should be (true)\n")
-  fp_all.puts("  }\n")
+fp_all.puts("  val pattern_path = Array (\n")
+hex_list.each_with_index{|hex_file, idx|
+  if idx != hex_list.length-1 then
+    fp_all.puts("    \"" + hex_file + "\",\n")
+  else
+    fp_all.puts("    \"" + hex_file + "\"\n")
+  end
 }
+fp_all.puts("  )")
+
+fp_all.puts("  val log_path = Array (\n")
+hex_list.each_with_index{|hex_file, idx|
+  pattern_name = File.basename(hex_file, ".hex").gsub("-", "_")
+  if idx != hex_list.length-1 then
+    fp_all.puts("    \"" + pattern_name + ".log\",\n")
+  else
+    fp_all.puts("    \"" + pattern_name + ".log\"\n")
+  end
+}
+fp_all.puts("  )")
+
+fp_all.puts("  (0 to " + (hex_list.length - 1).to_s  + ").par foreach { idx =>\n")
+fp_all.puts("    iotesters.Driver.execute(args, () => new CpuTop(new RV64IConfig)) {\n")
+fp_all.puts("      c => new CpuTopTests(c, pattern_path(idx), log_path(idx))\n")
+fp_all.puts("    } should be (true)\n")
+fp_all.puts("  }\n")
+
 fp_all.puts("}\n")
 
 fp_all.close
