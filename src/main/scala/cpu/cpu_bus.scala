@@ -10,6 +10,7 @@ class Bus [Conf <: RVConfig](conf: Conf) extends Bundle {
   val req  = Input(Bool())
   val addr = Input(UInt(conf.bus_width.W))
   val data = Input(SInt(32.W))
+  val rddata = Output(SInt(32.W))
 }
 
 

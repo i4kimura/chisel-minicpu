@@ -25,9 +25,9 @@ class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
 
   // ALU
   val alu_rdata0  = if (conf.debug == true) Output(SInt(conf.xlen.W))  else Output(SInt(0.W))
-  val alu_reg_rs0 = if (conf.debug == true) Output(UInt(5.W))          else Output(SInt(0.W))
+  val alu_reg_rs0 = if (conf.debug == true) Output(UInt(5.W))          else Output(UInt(0.W))
   val alu_rdata1  = if (conf.debug == true) Output(SInt(conf.xlen.W))  else Output(SInt(0.W))
-  val alu_reg_rs1 = if (conf.debug == true) Output(UInt(5.W))          else Output(SInt(0.W))
+  val alu_reg_rs1 = if (conf.debug == true) Output(UInt(5.W))          else Output(UInt(0.W))
   val alu_func    = if (conf.debug == true) Output(UInt(ALU_OP_SIZE))  else Output(UInt(0.W))
 
   val mem_inst_valid = if (conf.debug == true) Output(Bool())            else Output(UInt(0.W))
@@ -48,9 +48,11 @@ class CpuDebugMonitor [Conf <: RVConfig](conf: Conf) extends Bundle {
   val data_bus_rddata = if (conf.debug == true) Output(SInt(conf.xlen.W))      else Output(SInt(0.W))
 }
 
+
 class CpuTopIo [Conf <: RVConfig](conf: Conf) extends Bundle {
   val run         = Input(Bool())
   val ext_bus     = new Bus(conf)
+
   val dbg_monitor = new CpuDebugMonitor(conf)
 }
 
@@ -357,7 +359,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
   u_csrfile.io.rw.wdata   := ex_alu_op0.asUInt
   u_csrfile.io.ecall_inst := ex_ecall_en
 
-  if (conf.debug == true) {
+  // if (conf.debug == true) {
 
     val debug_pc_update_cause = Wire(UInt(3.W))
     debug_pc_update_cause := MuxCase (0.U, Array (
@@ -405,7 +407,7 @@ class Cpu [Conf <: RVConfig](conf: Conf) extends Module {
     io.dbg_monitor.data_bus_wrdata := io.data_bus.wrdata
     io.dbg_monitor.data_bus_ack    := io.data_bus.ack
     io.dbg_monitor.data_bus_rddata := io.data_bus.rddata
-  }
+  // }
 }
 
 

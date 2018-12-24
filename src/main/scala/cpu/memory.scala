@@ -19,6 +19,9 @@ class Memory [Conf <: RVConfig](conf: Conf) extends Module {
 
   val inst_rd_data = Wire(Vec(8, UInt(8.W)))
   val data_rd_data = Wire(Vec(8, UInt(8.W)))
+  val ext_rd_data  = Wire(Vec(8, UInt(8.W)))
+
+  io.ext_bus
 
   for (bank <- 0 until 8) {
 
@@ -33,7 +36,9 @@ class Memory [Conf <: RVConfig](conf: Conf) extends Module {
         // printf("Load Memory : %x <= %x\n", io.ext_bus.addr(conf.bus_width-1, 0), io.ext_bus.data(data_msb, data_lsb))
         memory(io.ext_bus.addr(conf.bus_width-1, 1)) := io.ext_bus.data(data_msb, data_lsb)
       }
+      /* Ext Bus */
     }
+    ext_rd_data(bank) := memory(io.ext_bus.addr(conf.bus_width-1, 3))
 
     /* Inst Bus */
     inst_rd_data(bank) := memory(io.inst_bus.addr(conf.bus_width-1, 3))
@@ -118,5 +123,12 @@ class Memory [Conf <: RVConfig](conf: Conf) extends Module {
       data_bus_rddata := Cat(Fill(56, target_data(7)), target_data).asSInt
     }
   }
+
+  val ext_bus_rddata = Wire(SInt(32.W))
+  ext_bus_rddata := Cat (ext_rd_data(io.data_bus.addr(2) * 4.U + 3.U),
+                         ext_rd_data(io.data_bus.addr(2) * 4.U + 2.U),
+                         ext_rd_data(io.data_bus.addr(2) * 4.U + 1.U),
+                         ext_rd_data(io.data_bus.addr(2) * 4.U + 0.U)).asSInt
+  io.ext_bus.rddata := ext_bus_rddata
 
 }
