@@ -3,6 +3,9 @@
 regression: gen_test_class
 	sbt 'testOnly cpu.Tester_AllPattern'
 
+par_regression: gen_test_class
+	sbt 'testOnly cpu.Parallel_AllPattern'
+
 invididual_tests: gen_test_class
 	$(MAKE) run_all
 
