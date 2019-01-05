@@ -26,7 +26,7 @@ def javacOptionsVersion(scalaVersion: String): Seq[String] = {
 
 name := "chisel-module-template"
 
-version := "3.0.0"
+version := "3.1.2"
 
 scalaVersion := "2.11.11"
 

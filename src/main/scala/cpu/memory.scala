@@ -21,8 +21,6 @@ class Memory [Conf <: RVConfig](conf: Conf) extends Module {
   val data_rd_data = Wire(Vec(8, UInt(8.W)))
   val ext_rd_data  = Wire(Vec(8, UInt(8.W)))
 
-  io.ext_bus
-
   for (bank <- 0 until 8) {
 
     val memory = Mem(math.pow(2, conf.bus_width + 2).toInt , UInt(8.W))
