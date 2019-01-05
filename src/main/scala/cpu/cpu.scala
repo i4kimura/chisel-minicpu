@@ -70,8 +70,14 @@ class CpuIo [Conf <: RVConfig](conf: Conf) extends Bundle {
 class CpuTop [Conf <: RVConfig](conf: Conf) extends Module {
   val io = IO (new CpuTopIo(conf))
 
-  // val memory = if (conf.debug == true) { Module(new Memory(conf)) } else { Module(new MemoryBlackBox(conf)) }
-  val memory = Module(new MemoryBlackBox(conf))
+  // val memory = conf.debug match {
+  //   case true => new Memory(conf)
+  //   case _ => new MemoryBlackBox(conf)
+  // }
+  // val memory = if (conf.debug == true) Module(new Memory(conf)) else Module(new MemoryBlackBox(conf))
+  // val memory = Module(new MemoryBlackBox(conf))
+  // val memory = Module(new MemoryResourceBox(conf))
+  val memory = Module(new Memory(conf))
   val cpu    = Module(new Cpu(conf))
 
   cpu.io.run       := io.run

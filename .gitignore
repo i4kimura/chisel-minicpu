@@ -1,10 +1,12 @@
 # Generated files
-*.v
-*.fir
-*.json
+/*.v
+/*.fir
+/*.json
+/*.f
 
 project
 target
+test_run_dir
 
 # Test Patterns
 *.elf
@@ -18,3 +20,4 @@ src/test/scala/cpu/Test_AllPatterns.scala
 src/test/scala/cpu/Test_rv64ui-p-*.scala
 pipetrace.*.log
 rv64ui_test.mk
+/*.log
