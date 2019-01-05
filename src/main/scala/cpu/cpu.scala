@@ -70,16 +70,17 @@ class CpuIo [Conf <: RVConfig](conf: Conf) extends Bundle {
 class CpuTop [Conf <: RVConfig](conf: Conf) extends Module {
   val io = IO (new CpuTopIo(conf))
 
-  val memory = Module(new Memory(conf))
+  // val memory = if (conf.debug == true) { Module(new Memory(conf)) } else { Module(new MemoryBlackBox(conf)) }
+  val memory = Module(new MemoryBlackBox(conf))
   val cpu    = Module(new Cpu(conf))
 
   cpu.io.run       := io.run
 
   // Connect CPU and Memory
-  memory.io.inst_bus <> cpu.io.inst_bus
-  memory.io.data_bus <> cpu.io.data_bus
+  memory.io.mem.inst_bus <> cpu.io.inst_bus
+  memory.io.mem.data_bus <> cpu.io.data_bus
   // Memory Load for External Debug
-  memory.io.ext_bus  <> io.ext_bus
+  memory.io.mem.ext_bus  <> io.ext_bus
 
   io.dbg_monitor <> cpu.io.dbg_monitor
 }
