@@ -3,7 +3,19 @@ package cpu
 import chisel3._
 import chisel3.util._
 
-class MemoryBlackBox [Conf <: RVConfig](conf: Conf) extends BlackBox with HasBlackBoxInline {
+class MemoryInlineBox [Conf <: RVConfig](conf: Conf) extends Module {
+  val io = IO(new Bundle {
+    val mem = new MemoryIo(conf)
+  })
+
+  val mem_black_box_core = Module(new MemoryInlineBoxCore(conf))
+
+  mem_black_box_core.io.clock <> clock
+  mem_black_box_core.io.mem <> io.mem
+}
+
+
+class MemoryInlineBoxCore [Conf <: RVConfig](conf: Conf) extends BlackBox with HasBlackBoxInline {
   val io = IO(new Bundle {
     val clock = Input(Clock())
     val mem = new MemoryIo(conf)

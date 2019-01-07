@@ -14,7 +14,26 @@ class MemoryIo [Conf <: RVConfig](conf: Conf) extends Bundle {
   val ext_bus = new Bus(conf)
 }
 
-class Memory [Conf <: RVConfig](conf: Conf) extends Module {
+class CpuMemory [Conf <: RVConfig](conf: Conf) extends Module {
+  val io = IO(new Bundle {
+    val mem = new MemoryIo(conf)
+  })
+
+  val memory = conf.debug match {
+    case true => {
+      val mem_model = Module(new MemoryModel(conf))
+      mem_model
+    }
+    case _ => {
+      val mem_model = Module(new MemoryInlineBox(conf))
+      mem_model
+    }
+  }
+
+  memory.io <> io
+}
+
+class MemoryModel [Conf <: RVConfig](conf: Conf) extends Module {
   val io = IO(new Bundle {
     val mem = new MemoryIo(conf)
   })
