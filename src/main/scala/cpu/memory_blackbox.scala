@@ -21,9 +21,9 @@ class MemoryInlineBoxCore [Conf <: RVConfig](conf: Conf) extends BlackBox with H
     val mem = new MemoryIo(conf)
   })
 
-  setInline("MemoryBlackBox.v",
+  setInline("MemoryBlackBoxCore.v",
     s"""
-|module MemoryBlackBox
+|module MemoryBlackBoxCore
 |  (
 |   input logic         clock,
 |   input logic         mem_inst_bus_req,
