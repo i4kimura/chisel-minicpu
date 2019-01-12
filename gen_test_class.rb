@@ -1,6 +1,6 @@
 #!/bin/ruby
 
-hex_list = Dir.glob("tests/riscv-tests/isa/rv64ui*-p-*.hex")
+hex_list = Dir.glob("tests/riscv-tests/isa/rv64[usm]i-p-*.hex")
 
 hex_patterns = hex_list.map{|hex_file| File.basename(hex_file, ".hex").gsub("-", "_")}
 

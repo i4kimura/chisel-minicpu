@@ -25,7 +25,7 @@ class CpuMemory [Conf <: RVConfig](conf: Conf) extends Module {
       mem_model
     }
     case _ => {
-      val mem_model = Module(new MemoryInlineBox(conf))
+      val mem_model = Module(new MemoryResourceBox(conf))
       mem_model
     }
   }
