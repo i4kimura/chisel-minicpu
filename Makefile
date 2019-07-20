@@ -1,4 +1,4 @@
-.PHONY = regression gen_test_class invididual_tests cpu_verilog gen_test_class
+.PHONY = regression gen_test_class invididual_tests cpu_verilog mod_verilog ooo_verilog gen_test_class
 
 par_scala_regression: gen_test_class
 	sbt 'testOnly cpu.Parallel_ScalaPattern'
@@ -14,6 +14,9 @@ cpu_verilog:
 
 mod_verilog:
 	sbt 'runMain mod_test.ParamModTop'
+
+ooo_verilog:
+	sbt 'runMain ooo.OooCore'
 
 gen_test_class: compile_tests
 	ruby ./gen_test_class.rb
