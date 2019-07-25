@@ -24,7 +24,7 @@ gen_test_class: compile_tests
 compile_tests:
 	$(MAKE) -C tests/riscv-tests/isa
 
-include rv64ui_test.mk
+-include rv64ui_test.mk
 
 clean:
 	rm -rf test_run_dir project target *.v *.fir *.json *.log
