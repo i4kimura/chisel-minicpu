@@ -262,8 +262,9 @@ class l1c_tag [Conf <: RVConfig](conf: Conf, TagLsb: Int, TagBit: Int) extends M
   }
 
   io.read_tag   := mem_tag.read(io.req_index)
-  io.read_valid := RegNext(mem_valid(io.req_index))
-  io.read_dirty := RegNext(mem_dirty(io.req_index))
+  // io.read_valid := RegNext(mem_valid(io.req_index))
+  io.read_valid := RegNext(mem_valid.apply(io.req_index))
+  io.read_dirty := RegNext(mem_dirty.apply(io.req_index))
 
 }
 

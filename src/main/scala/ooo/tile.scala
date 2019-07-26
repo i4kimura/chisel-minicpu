@@ -24,6 +24,8 @@ class OooTile [Conf <: RVConfig](conf: Conf) extends Module {
 
   l1dcache.io.cpu_rd_req.valid     := ooo_core.io.lsu_req.valid
   l1dcache.io.cpu_rd_req.bits.addr := ooo_core.io.lsu_req.bits.addr
+  l1dcache.io.cpu_wr_req.valid     := false.B
+  l1dcache.io.cpu_wr_req.bits.addr := 0.U
   ooo_core.io.lsu_req.ready        := l1dcache.io.cpu_rd_req.ready
 
   ooo_core.io.lsu_resp.valid       := l1dcache.io.cpu_rd_resp.valid
@@ -35,10 +37,14 @@ class OooTile [Conf <: RVConfig](conf: Conf) extends Module {
 
   l1icache.io.ext_rd_req  <> io.l1i_rd_req
   l1icache.io.ext_rd_resp <> io.l1i_rd_resp
+  l1icache.io.ext_wr_req.ready := false.B
+
+  l1icache.io.cpu_wr_req.bits.addr := 0.U
+  l1icache.io.cpu_wr_req.valid     := false.B
 
   l1dcache.io.ext_rd_req  <> io.l1d_rd_req
   l1dcache.io.ext_rd_resp <> io.l1d_rd_resp
-  l1dcache.io.ext_wr_req  <> io.l1d_wr_req
+  io.l1d_wr_req <> l1dcache.io.ext_wr_req
 
 }
 
