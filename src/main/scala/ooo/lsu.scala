@@ -4,15 +4,25 @@ import chisel3._
 import chisel3.util._
 import chisel3.Bool
 
-class LsuReqIo [Conf <: RVConfig](conf: Conf) extends Bundle {
+class LsuRdReqIo [Conf <: RVConfig](conf: Conf) extends Bundle {
   override def cloneType: this.type =
-    new LsuReqIo(conf).asInstanceOf[this.type]
+    new LsuRdReqIo(conf).asInstanceOf[this.type]
 
   val cmd    = Output(UInt(2.W))
   val addr   = Output(UInt(conf.bus_width.W))
   val size   = Output(UInt(3.W))
   val wrdata = Output(SInt(conf.xlen.W))
 }
+
+class LsuWrReqIo [Conf <: RVConfig](conf: Conf) extends Bundle {
+  override def cloneType: this.type =
+    new LsuRdReqIo(conf).asInstanceOf[this.type]
+
+  val cmd    = Output(UInt(2.W))
+  val addr   = Output(UInt(conf.bus_width.W))
+  val size   = Output(UInt(3.W))
+}
+
 
 class LsuRespIo [Conf <: RVConfig](conf: Conf) extends Bundle {
   override def cloneType: this.type =
@@ -37,8 +47,8 @@ class Lsu [Conf <: RVConfig](conf: Conf) extends Module {
     val op0 = Input(SInt(conf.xlen.W))
     val op1 = Input(SInt(conf.xlen.W))
 
-    val lsu_req = Decoupled(new LsuReqIo(conf))
-    val lsu_resp = Flipped(Decoupled(new LsuRespIo(conf)))
+    val lsu_req = Decoupled(new LsuRdReqIo(conf))
+    val lsu_resp   = Flipped(Decoupled(new LsuRespIo(conf)))
 
     val lsu_read = Valid(new LsuReadIo(conf))
   })

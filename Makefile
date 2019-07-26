@@ -16,7 +16,7 @@ mod_verilog:
 	sbt 'runMain mod_test.ParamModTop'
 
 ooo_verilog:
-	sbt 'runMain ooo.OooCore'
+	sbt 'runMain ooo.OooTile'
 
 gen_test_class: compile_tests
 	ruby ./gen_test_class.rb

@@ -27,7 +27,7 @@ class OooCore [Conf <: RVConfig](conf: Conf) extends Module {
     val front_req = Decoupled(new FrontEndReqIo(conf))
     val front_resp = Flipped(Decoupled(new FrontEndRespIo(conf)))
 
-    val lsu_req = Decoupled(new LsuReqIo(conf))
+    val lsu_req = Decoupled(new LsuRdReqIo(conf))
     val lsu_resp = Flipped(Decoupled(new LsuRespIo(conf)))
   })
 
