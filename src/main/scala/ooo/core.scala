@@ -31,10 +31,14 @@ class OooCore [Conf <: RVConfig](conf: Conf) extends Module {
     val lsu_resp = Flipped(Decoupled(new LsuRespIo(conf)))
   })
 
+  val f1_pc = RegInit (0x080000000L.U(32.W))
+
   io.front_req.valid     := true.B
-  io.front_req.bits.addr := 0.U
+  io.front_req.bits.addr := f1_pc
 
   io.front_resp.ready := true.B
+
+  f1_pc := Mux(io.front_req.fire(), f1_pc + 4.U, f1_pc)
 
   /* Decoder */
   val decode_units = for (w <- 0 until conf.fetch_width) yield {

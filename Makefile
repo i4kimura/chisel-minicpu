@@ -17,6 +17,8 @@ mod_verilog:
 
 ooo_verilog:
 	sbt 'runMain ooo.OooTile'
+ooo_test:
+	sbt 'testOnly ooo.Tester'
 
 gen_test_class: compile_tests
 	ruby ./gen_test_class.rb
