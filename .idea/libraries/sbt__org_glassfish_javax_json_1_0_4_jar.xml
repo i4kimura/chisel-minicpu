@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="sbt: org.glassfish:javax.json:1.0.4:jar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.ivy2/cache/org.glassfish/javax.json/bundles/javax.json-1.0.4.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.ivy2/cache/org.glassfish/javax.json/srcs/javax.json-1.0.4-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
