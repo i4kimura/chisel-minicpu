@@ -46,59 +46,69 @@ class MemoryModel [Conf <: RVConfig](conf: Conf) extends Module {
     val ext = Flipped(new ExtBus(conf))
   })
 
-  val inst_rd_data = Wire(Vec(8, UInt(8.W)))
-  val data_rd_data = Wire(Vec(8, UInt(8.W)))
-  val ext_rd_data  = Wire(Vec(8, UInt(8.W)))
+  val memory_byte_w = conf.memory_byte_w
+  val bank_w:Int    = (scala.math.log10(conf.memory_byte_w) / scala.math.log10(2)).asInstanceOf[Int]
+
+  val inst_rd_data = Wire(Vec(memory_byte_w, UInt(8.W)))
+  val data_rd_data = Wire(Vec(memory_byte_w, UInt(8.W)))
+  val ext_rd_data  = Wire(Vec(memory_byte_w, UInt(8.W)))
 
   when (io.ext.req) {
     printf("Load Memory : %x <= %x\n", Cat(io.ext.addr(conf.bus_width-1, 0), 0.U(2.W)), io.ext.wrdata.asUInt)
   }
 
-  for (bank <- 0 until 8) {
+  for (bank <- 0 until memory_byte_w) {
+    val data_msb = (bank & 0x3)*8+7
+    val data_lsb = (bank & 0x3)*8+0
 
-    val memory = Mem(math.pow(2, conf.bus_width + 2).toInt , UInt(8.W))
+    val memory = SyncReadMem(math.pow(2, conf.bus_width + 2).toInt , UInt(8.W))
 
-    val bank_idx = bank.U(3.W)
+    val bank_idx = bank.U(bank_w-1, 0)
+
+    val ext_bank_addr = io.ext.addr(conf.bus_width-1, 3)
+    val ext_bank_data = io.ext.wrdata(data_msb, data_lsb)
+
+    val mem_inst_rd_addr = io.mem.l1i_rd_req.bits.addr(conf.bus_width-1, 3)
+    val mem_data_rd_addr = io.mem.l1d_rd_req.bits.addr(conf.bus_width-1, 3)
 
     when (io.ext.req) {
-      val data_msb = (bank & 0x3)*8+7
-      val data_lsb = (bank & 0x3)*8+0
-      when(io.ext.addr(0) === bank_idx(2)) {
-        memory(io.ext.addr(conf.bus_width-1, 1)) := io.ext.wrdata(data_msb, data_lsb)
+      when(io.ext.addr(bank_w-1, 2) === bank_idx(bank_w-1, 2)) {
+        memory.write(ext_bank_addr, ext_bank_data)
       }
       /* Ext Bus */
     }
-    ext_rd_data(bank) := memory(io.ext.addr(conf.bus_width-1, 3))
+    ext_rd_data(bank) := memory.read(ext_bank_addr)
 
     /* Inst Bus */
-    inst_rd_data(bank) := memory(io.mem.l1i_rd_req.bits.addr(conf.bus_width-1, 3))
+    inst_rd_data(bank) := memory.read(mem_inst_rd_addr)
 
     /* Data Bus */
-    data_rd_data(bank) := memory(io.mem.l1d_rd_req.bits.addr(conf.bus_width-1, 3))
+    data_rd_data(bank) := memory(mem_data_rd_addr)
     // when (io.mem.l1d_rd_req.req === true.B && io.mem.l1d_rd_req.cmd === MCMD_RD) {
     //   printf("Load Memory : %x <= %x\n", io.mem.l1d_rd_req.bits.addr(conf.bus_width-1, 0), data_rd_data(bank))
     // }
 
-    val data_msb = bank * 8 + 7
-    val data_lsb = bank * 8 + 0
+    val mem_data_wr_addr = io.mem.l1d_wr_req.bits.addr(conf.bus_width-1, 3)
+    val mem_data_wr_data = io.mem.l1d_wr_req.bits.wrdata(data_msb, data_lsb)
+
     when(io.mem.l1d_wr_req.fire()) {
       switch (io.mem.l1d_wr_req.bits.size) {
         is (MT_D) {
-          memory(io.mem.l1d_wr_req.bits.addr(conf.bus_width-1, 3)) := io.mem.l1d_wr_req.bits.wrdata(data_msb, data_lsb)
+          memory.write(mem_data_wr_addr, mem_data_wr_data)
         }
         is (MT_W) {
           when (io.mem.l1d_wr_req.bits.addr(2) === bank_idx(2)) {
-            memory(io.mem.l1d_wr_req.bits.addr(conf.bus_width-1, 3)) := io.mem.l1d_wr_req.bits.wrdata((bank & 0x3)*8+7, (bank & 0x3)*8+0)
+            memory.write(mem_data_wr_addr, io.mem.l1d_wr_req.bits.wrdata((bank & 0x3)*8+7, (bank & 0x3)*8+0))
           }
         }
         is (MT_H) {
           when (io.mem.l1d_wr_req.bits.addr(2,1) === bank_idx(2,1)) {
-            memory(io.mem.l1d_wr_req.bits.addr(conf.bus_width-1, 3)) := io.mem.l1d_wr_req.bits.wrdata((bank & 0x1)*8+7, (bank & 0x1)*8+0)
+            memory.write(mem_data_wr_addr, io.mem.l1d_wr_req.bits.wrdata((bank & 0x1)*8+7, (bank & 0x1)*8+0))
           }
         }
         is (MT_B) {
           when (io.mem.l1d_wr_req.bits.addr(2,0) === bank_idx(2,0)) {
-            memory(io.mem.l1d_wr_req.bits.addr(conf.bus_width-1, 3)) := io.mem.l1d_wr_req.bits.wrdata(7, 0)
+            memory.write(mem_data_wr_addr, io.mem.l1d_wr_req.bits.wrdata(7, 0))
           }
         }
       }
@@ -106,8 +116,7 @@ class MemoryModel [Conf <: RVConfig](conf: Conf) extends Module {
   }
 
   val inst_bus_ack    = RegNext(io.mem.l1i_rd_req.valid)
-  val inst_bus_rddata = Reg(SInt(64.W))
-
+  val inst_bus_rddata = Wire(SInt(64.W))
 
   io.mem.l1i_rd_req.ready := true.B
 
@@ -116,7 +125,6 @@ class MemoryModel [Conf <: RVConfig](conf: Conf) extends Module {
   when(io.mem.l1i_rd_req.fire() & io.mem.l1i_rd_req.bits.addr(2) === 0.U(1.W)) {
     inst_bus_rddata := Cat(inst_rd_data(3), inst_rd_data(2), inst_rd_data(1), inst_rd_data(0)).asSInt
   } .otherwise {
-    // printf("PC = %x, data = %x\n", io.mem.l1i_rd_req.bits.addr, Cat(inst_rd_data(7), inst_rd_data(6), inst_rd_data(5), inst_rd_data(4)))
     inst_bus_rddata := Cat(inst_rd_data(7), inst_rd_data(6), inst_rd_data(5), inst_rd_data(4)).asSInt
   }
 

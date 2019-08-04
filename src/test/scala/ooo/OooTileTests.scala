@@ -29,20 +29,24 @@ class OooTileTests [Conf <: RVConfig](c: OooTileTb[Conf], hexname: String, pipen
   val writer = new PrintWriter(new File(pipename))
 
   private val cpu_tb = c
-
-  // poke (cpu_tb.io.run, 0)
+  poke (cpu_tb.io.cpu_reset, 1)
 
   memory.foreach{ mem =>
     poke (cpu_tb.io.ext_bus.req,    1)
-    poke (cpu_tb.io.ext_bus.addr,   mem(0))
+    poke (cpu_tb.io.ext_bus.addr,   mem(0) * 4)
     poke (cpu_tb.io.ext_bus.wrdata, mem(1))
 
+    step(1)
+    poke (cpu_tb.io.ext_bus.req ,   0)
     step(1)
   }
 
   poke (cpu_tb.io.ext_bus.req ,   0)
   poke (cpu_tb.io.ext_bus.addr,   0)
   poke (cpu_tb.io.ext_bus.wrdata, 0)
+
+  // Start CPU
+  poke (cpu_tb.io.cpu_reset, 0)
 
   step(1)
   step(1)
