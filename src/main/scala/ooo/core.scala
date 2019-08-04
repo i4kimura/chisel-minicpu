@@ -27,8 +27,9 @@ class OooCore [Conf <: RVConfig](conf: Conf) extends Module {
     val front_req = Decoupled(new FrontEndReqIo(conf))
     val front_resp = Flipped(Decoupled(new FrontEndRespIo(conf)))
 
-    val lsu_req = Decoupled(new LsuRdReqIo(conf))
-    val lsu_resp = Flipped(Decoupled(new LsuRespIo(conf)))
+    val lsu_rd_req  = Decoupled(new LsuRdReqIo(conf))
+    val lsu_rd_resp = Flipped(Decoupled(new LsuRdRespIo(conf)))
+    val lsu_wr_req  = Decoupled(new LsuWrReqIo(conf))
   })
 
   val f1_pc = RegInit (0x080000000L.U(32.W))
@@ -134,8 +135,9 @@ class OooCore [Conf <: RVConfig](conf: Conf) extends Module {
   lsu.io.op0 := reg_read_data(1)(0)
   lsu.io.op1 := reg_read_data(1)(1)
 
-  io.lsu_req  <> lsu.io.lsu_req
-  lsu.io.lsu_resp <> io.lsu_resp
+  io.lsu_rd_req      <> lsu.io.lsu_rd_req
+  lsu.io.lsu_rd_resp <> io.lsu_rd_resp
+  lsu.io.lsu_wr_req  <> io.lsu_wr_req
 
   /* WriteBack */
   u_regs.io.write.en   := false.B

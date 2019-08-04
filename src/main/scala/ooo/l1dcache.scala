@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.Bool
 
-trait L1ICacheParams {
+trait L1DCacheParams {
   def nSets:         Int
   def nWays:         Int
   def rowBits:       Int
@@ -12,113 +12,79 @@ trait L1ICacheParams {
   def blockBytes:    Int // TODO this is ignored in favor of p(CacheBlockBytes) in BaseTile
 }
 
-case class ICacheParams(
-  nSets: Int = 64,
-  nWays: Int = 4,
-  rowBits: Int = 128,
-  nTLBEntries: Int = 32,
-  cacheIdBits: Int = 0,
-  tagECC: Option[String] = None,
-  dataECC: Option[String] = None,
-  itimAddr: Option[BigInt] = None,
-  prefetch: Boolean = false,
-  blockBytes: Int = 64,
-  latency: Int = 2,
-  fetchBytes: Int = 4) extends L1ICacheParams {
-}
 
-
-class ICacheReq extends Bundle {
-  val addr = UInt(32.W)
-}
-
-
-class ICacheResp extends Bundle {
-  // override def cloneType:this.type
-  //   = new ICacheResp.asInstanceOf[this.type]
-
-  val data = UInt(128.W)
-  val replay = Bool()
-  val ae = Bool()
-}
-
-class ICachePerfEvents extends Bundle {
-  val acquire = Bool()
-}
-
-
-class L1ICacheBundle [Conf <: RVConfig](conf: Conf) extends Bundle {
+class L1DCacheBundle [Conf <: RVConfig](conf: Conf) extends Bundle {
   /* CPU Request */
-  val cpu_rd_req  = Flipped(Decoupled(new FrontEndReqIo(conf)))
-  val cpu_rd_resp = Decoupled(new FrontEndRespIo (conf))
-  val cpu_wr_req  = Flipped(Decoupled(new FrontEndReqIo (conf)))
+  val cpu_rd_req  = Flipped(Decoupled(new LsuRdReqIo(conf)))
+  val cpu_rd_resp = Decoupled(new LsuRdRespIo (conf))
+  val cpu_wr_req  = Flipped(Decoupled(new LsuWrReqIo (conf)))
 
-  /* L1ICache External Request */
-  val ext_rd_req  = Decoupled(new FrontEndReqIo(conf))
-  val ext_rd_resp = Flipped(Decoupled(new FrontEndRespIo (conf)))
-  val ext_wr_req  = Decoupled(new FrontEndReqIo (conf))
+  /* L1DCache External Request */
+  val ext_rd_req  = Decoupled(new LsuRdReqIo(conf))
+  val ext_rd_resp = Flipped(Decoupled(new LsuRdRespIo (conf)))
+  val ext_wr_req  = Decoupled(new LsuWrReqIo (conf))
 }
 
 
-class L1ICache [Conf <: RVConfig](conf: Conf) extends Module
+class L1DCache [Conf <: RVConfig](conf: Conf) extends Module
 {
-  val io = IO(new L1ICacheBundle(conf))
+  val io = IO(new L1DCacheBundle(conf))
 
   val TagLsb = 10
   val TagBit = conf.bus_width - TagLsb
 
-  val u_l1ic_fsm  = Module(new l1ic_fsm(conf, TagLsb, TagBit))
-  val u_l1ic_tag  = Module(new l1ic_tag(conf, TagLsb, TagBit))
-  val u_l1ic_data = Module(new l1ic_data(conf, TagLsb))
+  val u_l1dc_fsm  = Module(new l1dc_fsm(conf, TagLsb, TagBit))
+  val u_l1dc_tag  = Module(new l1dc_tag(conf, TagLsb, TagBit))
+  val u_l1dc_data = Module(new l1dc_data(conf, TagLsb))
 
   //** L1-State Machine **
-  u_l1ic_fsm.io.cpu_rd_req  <> io.cpu_rd_req
-  u_l1ic_fsm.io.cpu_rd_resp <> io.cpu_rd_resp
-  u_l1ic_fsm.io.cpu_wr_req  <> io.cpu_wr_req
+  u_l1dc_fsm.io.cpu_rd_req  <> io.cpu_rd_req
+  u_l1dc_fsm.io.cpu_rd_resp <> io.cpu_rd_resp
+  u_l1dc_fsm.io.cpu_wr_req  <> io.cpu_wr_req
 
-  u_l1ic_fsm.io.ext_rd_req  <> io.ext_rd_req
-  u_l1ic_fsm.io.ext_rd_resp <> io.ext_rd_resp
-  u_l1ic_fsm.io.ext_wr_req  <> io.ext_wr_req
+  u_l1dc_fsm.io.ext_rd_req  <> io.ext_rd_req
+  u_l1dc_fsm.io.ext_rd_resp <> io.ext_rd_resp
+  u_l1dc_fsm.io.ext_wr_req  <> io.ext_wr_req
 
-  u_l1ic_fsm.io.f1_tag_tag        := u_l1ic_tag.io.read_tag    // read port
-  u_l1ic_fsm.io.f1_tag_read_valid := u_l1ic_tag.io.read_valid  // valid bit
-  u_l1ic_fsm.io.f1_tag_read_dirty := u_l1ic_tag.io.read_dirty  // dirty bit
+  u_l1dc_fsm.io.f1_tag_tag        := u_l1dc_tag.io.read_tag    // read port
+  u_l1dc_fsm.io.f1_tag_read_valid := u_l1dc_tag.io.read_valid  // valid bit
+  u_l1dc_fsm.io.f1_tag_read_dirty := u_l1dc_tag.io.read_dirty  // dirty bit
 
   //** L1-Data **
-  u_l1ic_data.io.rd_idx  := 0.U
-  // u_l1ic_data.io.rd_data
+  u_l1dc_data.io.rd_idx  := 0.U
+  // u_l1dc_data.io.rd_data
 
-  u_l1ic_data.io.wr_we   := false.B
-  u_l1ic_data.io.wr_idx  := 0.U  // write index
-  u_l1ic_data.io.wr_data := 0.U  //write port (128-bit line)
+  u_l1dc_data.io.wr_we   := false.B
+  u_l1dc_data.io.wr_idx  := 0.U  // write index
+  u_l1dc_data.io.wr_data := 0.U  //write port (128-bit line)
 
   //** L1-Tag **
-  u_l1ic_tag.io.req_index := 0.U    // 10-bit index
+  u_l1dc_tag.io.req_index := 0.U    // 10-bit index
 
-  u_l1ic_tag.io.update_index := 0.U // 10-bit index
-  u_l1ic_tag.io.update_we    := u_l1ic_fsm.io.data_update_we  // write enable
+  u_l1dc_tag.io.update_index := 0.U // 10-bit index
+  u_l1dc_tag.io.update_we    := u_l1dc_fsm.io.data_update_we  // write enable
 
-  u_l1ic_tag.io.write_tag   := 0.U       // write port
-  u_l1ic_tag.io.write_valid := true.B    // write enable
-  u_l1ic_tag.io.write_dirty := false.B   // dirty bit
+  u_l1dc_tag.io.write_tag   := 0.U       // write port
+  u_l1dc_tag.io.write_valid := true.B    // write enable
+  u_l1dc_tag.io.write_dirty := false.B   // dirty bit
 
 }
 
 //
-// L1ICache State Machine
+// L1DCache State Machine
 //
-class l1ic_fsm [Conf <: RVConfig](conf: Conf, TagLsb: Int, TagBit: Int) extends Module
+class l1dc_fsm [Conf <: RVConfig](conf: Conf, TagLsb: Int, TagBit: Int) extends Module
 {
   val io = IO(new Bundle {
     /* L1ICache Request */
-    val cpu_rd_req  = Flipped(Decoupled(new FrontEndReqIo(conf)))
-    val cpu_rd_resp = Decoupled(new FrontEndRespIo (conf))
-    val cpu_wr_req  = Flipped(Decoupled(new FrontEndReqIo (conf)))
+    val cpu_rd_req  = Flipped(Decoupled(new LsuRdReqIo(conf)))
+    val cpu_rd_resp = Decoupled(new LsuRdRespIo (conf))
+    val cpu_wr_req  = Flipped(Decoupled(new LsuWrReqIo (conf)))
 
     /* L1ICache Request */
-    val ext_rd_req  = Decoupled(new FrontEndReqIo(conf))
-    val ext_rd_resp = Flipped(Decoupled(new FrontEndRespIo (conf)))
-    val ext_wr_req  = Decoupled(new FrontEndReqIo (conf))
+    val ext_rd_req  = Decoupled(new LsuRdReqIo(conf))
+    val ext_rd_resp = Flipped(Decoupled(new LsuRdRespIo (conf)))
+    val ext_wr_req  = Decoupled(new LsuWrReqIo (conf))
 
     val f1_tag_tag        = Input(UInt(TagBit.W))
     val f1_tag_read_valid = Input(Bool())
@@ -145,7 +111,7 @@ class l1ic_fsm [Conf <: RVConfig](conf: Conf, TagLsb: Int, TagBit: Int) extends 
   io.cpu_rd_req.ready := true.B
 
   io.cpu_rd_resp.valid := false.B
-  io.cpu_rd_resp.bits.data := 0.U
+  io.cpu_rd_resp.bits.rddata := 0.S
 
   io.cpu_wr_req.ready := true.B
 
@@ -153,16 +119,19 @@ class l1ic_fsm [Conf <: RVConfig](conf: Conf, TagLsb: Int, TagBit: Int) extends 
   io.ext_rd_resp.ready := RegNext(ext_rd_resp_ready)
 
   io.ext_wr_req.valid := false.B
-  io.ext_wr_req.bits.addr  := 0.U
+  io.ext_wr_req.bits.addr   := 0.U
+  io.ext_wr_req.bits.wrdata := 0.S
+  io.ext_wr_req.bits.size   := 0.U
 
   val f1_cpu_rd_req_addr = RegNext (io.cpu_rd_req.bits.addr)
 
   io.data_update_we    := false.B
   io.data_update_index := f1_cpu_rd_req_addr(TagLsb-1, 0)
-  io.data_update_data  := io.ext_rd_resp.bits.data
+  io.data_update_data  := io.ext_rd_resp.bits.rddata.asUInt
 
   io.ext_rd_req.valid     := false.B
   io.ext_rd_req.bits.addr := 0.U
+  io.ext_rd_req.bits.size := 0.U
 
   ext_rd_resp_ready := false.B
   switch (state) {
@@ -212,7 +181,7 @@ class l1ic_fsm [Conf <: RVConfig](conf: Conf, TagLsb: Int, TagBit: Int) extends 
 }
 
 
-class l1ic_data [Conf <: RVConfig](conf: Conf, TagLsb: Int) extends Module
+class l1dc_data [Conf <: RVConfig](conf: Conf, TagLsb: Int) extends Module
 {
   val io = IO(new Bundle {
     val rd_idx  = Input(UInt(TagLsb.W))
@@ -232,7 +201,7 @@ class l1ic_data [Conf <: RVConfig](conf: Conf, TagLsb: Int) extends Module
 
 }
 
-class l1ic_tag [Conf <: RVConfig](conf: Conf, TagLsb: Int, TagBit: Int) extends Module
+class l1dc_tag [Conf <: RVConfig](conf: Conf, TagLsb: Int, TagBit: Int) extends Module
 {
   val io = IO(new Bundle {
     val req_index = Input(UInt(TagLsb.W))    // 10-bit index
@@ -269,6 +238,6 @@ class l1ic_tag [Conf <: RVConfig](conf: Conf, TagLsb: Int, TagBit: Int) extends 
 }
 
 
-object L1ICache extends App {
-  chisel3.Driver.execute(args, () => new L1ICache(new RV64IConfig))
+object L1DCache extends App {
+  chisel3.Driver.execute(args, () => new L1DCache(new RV64IConfig))
 }

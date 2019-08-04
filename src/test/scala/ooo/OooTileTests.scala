@@ -8,7 +8,7 @@ import util.control.Breaks._
 
 import BusConsts._
 
-class OooTileTests [Conf <: RVConfig](c: OooTile[Conf], hexname: String, pipename: String) extends PeekPokeTester(c)
+class OooTileTests [Conf <: RVConfig](c: OooTileTb[Conf], hexname: String, pipename: String) extends PeekPokeTester(c)
 {
   val fp = Source.fromFile(hexname)
   val lines = fp.getLines
@@ -33,21 +33,21 @@ class OooTileTests [Conf <: RVConfig](c: OooTile[Conf], hexname: String, pipenam
   // poke (cpu_tb.io.run, 0)
 
   memory.foreach{ mem =>
-    poke (cpu_tb.io.ext_bus.req, 1)
-    poke (cpu_tb.io.ext_bus.addr, mem(0))
-    poke (cpu_tb.io.ext_bus.data, mem(1))
+    poke (cpu_tb.io.ext_bus.req,    1)
+    poke (cpu_tb.io.ext_bus.addr,   mem(0))
+    poke (cpu_tb.io.ext_bus.wrdata, mem(1))
 
     step(1)
   }
 
-  poke (cpu_tb.io.ext_bus.req , 0)
-  poke (cpu_tb.io.ext_bus.addr, 0)
-  poke (cpu_tb.io.ext_bus.data, 0)
+  poke (cpu_tb.io.ext_bus.req ,   0)
+  poke (cpu_tb.io.ext_bus.addr,   0)
+  poke (cpu_tb.io.ext_bus.wrdata, 0)
 
   step(1)
   step(1)
 
-  poke (cpu_tb.io.run, 1)
+  // poke (cpu_tb.io.run, 1)
 
   breakable {
     for (cycle <- 0 to 4096) {
@@ -164,6 +164,15 @@ class OooTileTests [Conf <: RVConfig](c: OooTile[Conf], hexname: String, pipenam
 class Tester extends ChiselFlatSpec {
   "Basic test using Driver.execute" should "be used as an alternative way to run specification" in {
     iotesters.Driver.execute(Array(), () => new OooTileTb(new RV64IConfig)) {
+      c => new OooTileTests(c, "test.hex", "pipetrace.log")
+    } should be (true)
+  }
+}
+
+
+class RtlTester extends ChiselFlatSpec {
+  "Basic test using Driver.execute" should "be used as an alternative way to run specification" in {
+    iotesters.Driver.execute(Array("--backend-name", "verilator"), () => new OooTileTb(new RV64IConfig)) {
       c => new OooTileTests(c, "test.hex", "pipetrace.log")
     } should be (true)
   }
