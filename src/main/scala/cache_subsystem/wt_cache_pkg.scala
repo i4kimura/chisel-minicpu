@@ -231,7 +231,7 @@ object wt_cache_pkg
 
   // def icache_way_bin2oh (in: UInt(log2(ICACHE_SET_ASSOC))) : UInt(ICACHE_SET_ASSOC) = {
   def icache_way_bin2oh (in: UInt) : UInt = {
-    val out = UInt(ICACHE_SET_ASSOC.W)
+    var out = UInt(ICACHE_SET_ASSOC.W)
     out     := 0.U
     out(in) := 1.U
     return out
@@ -239,7 +239,7 @@ object wt_cache_pkg
 
   // def dcache_way_bin2oh (in: UInt(log2(DCACHE_SET_ASSOC))) : UInt(DCACHE_SET_ASSOC) = {
   def dcache_way_bin2oh (in: UInt) : UInt = {
-    val out = UInt(DCACHE_SET_ASSOC.W)
+    var out = UInt(DCACHE_SET_ASSOC.W)
     out     := 0.U
     out(in) := 1.U
     return out
@@ -247,10 +247,9 @@ object wt_cache_pkg
 
   // def dcache_cl_bin2oh(in: UInt(log2(DCACHE_NUM_BANKS).W)) : UInt(DCACHE_NUM_BANKS) = {
   def dcache_cl_bin2oh(in: UInt) : UInt = {
-    val out = UInt(DCACHE_NUM_BANKS)
-    out     := 0.U
-    out(in) := 1.U
-    return out
+    val out = Wire(Vec(DCACHE_NUM_BANKS, Bool()))
+    for(i <- 0 until DCACHE_NUM_BANKS) { out(i) := Mux(i.U === in, true.B, false.B) }
+    return out.asUInt
   }
 
   // def popcnt64(in: UInt(64.W)) : UInt(5.W) = {
