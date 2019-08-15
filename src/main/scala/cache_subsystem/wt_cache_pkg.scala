@@ -87,9 +87,14 @@ object wt_cache_pkg
   }
 
   // local interfaces between caches and L15 adapter
-  val dcache_store_req :: dcache_load_req :: dcache_atomic_req :: dcache_int_req :: Nil = Enum(4) // dcache_out_t
-  val dcache_inv_req /* no ack from the core required */ :: dcache_store_ack /* note: this may contain an invalidation vector, too */ :: dcache_load_ack :: dcache_atomic_ack :: dcache_int_ack :: Nil = Enum(5)  // dcache_in_t
-  val icache_inv_req /* no ack from the core required */ :: icache_ifill_ack :: Nil = Enum(2)  // icache_in_t
+  // dcache_out_t
+  val DCACHE_STORE_REQ  = 0.U(2.W)
+  val DCACHE_LOAD_REQ   = 1.U(2.W)
+  val DCACHE_ATOMIC_REQ = 2.U(2.W)
+  val DCACHE_INT_REQ    = 3.U(2.W)
+
+  val dcache_inv_req_s /* no ack from the core required */ :: dcache_store_ack_s /* note: this may contain an invalidation vector, too */ :: dcache_load_ack_s :: dcache_atomic_ack_s :: dcache_int_ack_s :: Nil = Enum(5)  // dcache_in_t
+  val icache_inv_req_s /* no ack from the core required */ :: icache_ifill_ack :: Nil = Enum(2)  // icache_in_t
 
   class cache_inval_t extends Bundle {
     val vld = Bool()                                 // invalidate only affected way
@@ -107,10 +112,10 @@ object wt_cache_pkg
   }
 
   class icache_rtrn_t extends Bundle {
-    val rtype = UInt()  // icache_in_t()                         // see definitions above
+    val rtype = UInt()                    // icache_in_t() // see definitions above
     val data  = UInt(ICACHE_LINE_WIDTH.W) // full cache line width
-    val inv   = UInt()  // cache_inval_t()                       // invalidation vector
-    val tid   = UInt(CACHE_ID_WIDTH.W)                // threadi id (used as transaction id in Ariane)
+    val inv   = new cache_inval_t()           // invalidation vector
+    val tid   = UInt(CACHE_ID_WIDTH.W)    // threadi id (used as transaction id in Ariane)
   }
 
   // dcache interface
@@ -126,10 +131,10 @@ object wt_cache_pkg
   }
 
   class dcache_rtrn_t extends Bundle {
-    val rtype = UInt() // dcache_in_t()                         // see definitions above
+    val rtype = UInt()                    // dcache_in_t() // see definitions above
     val data  = UInt(DCACHE_LINE_WIDTH.W) // full cache line width
-    val inv   = UInt() // cache_inval_t()                       // invalidation vector
-    val tid   = UInt(CACHE_ID_WIDTH.W)                // threadi id (used as transaction id in Ariane)
+    val inv   = new cache_inval_t()           // invalidation vector
+    val tid   = UInt(CACHE_ID_WIDTH.W)    // threadi id (used as transaction id in Ariane)
   }
 
 

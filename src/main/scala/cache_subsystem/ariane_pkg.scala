@@ -88,7 +88,7 @@ object ariane_pkg
   val DCACHE_TAG_WIDTH  : Int = 56 - DCACHE_INDEX_WIDTH
 
   // --------------------
-  // Atomics
+  // Atomics (amot_t)
   // --------------------
   val AMO_NONE = Integer.parseInt("0000", 2).U
   val AMO_LR   = Integer.parseInt("0001", 2).U
@@ -662,23 +662,23 @@ object ariane_pkg
 //         exception_t               ex;                     // we've encountered an exception
 //     } icache_dreq_o_t
 //
-//     // AMO request going to cache. this request is unconditionally valid as soon
-//     // as request goes high.
-//     // Furthermore, those signals are kept stable until the response indicates
-//     // completion by asserting ack.
-//     typedef struct packed {
-//         logic        req;       // this request is valid
-//         amo_t        amo_op;    // atomic memory operation to perform
-//         logic [1:0]  size;      // 2'b10 --> word operation, 2'b11 --> double word operation
-//         logic [63:0] operand_a; // address
-//         logic [63:0] operand_b; // data as layuoted in the register
-//     } amo_req_t
-//
-//     // AMO response coming from cache.
-//     typedef struct packed {
-//         logic        ack;    // response is valid
-//         logic [63:0] result; // sign-extended, result
-//     } amo_resp_t
+// AMO request going to cache. this request is unconditionally valid as soon
+// as request goes high.
+// Furthermore, those signals are kept stable until the response indicates
+// completion by asserting ack.
+class amo_req_t extends Bundle {
+  val req       = Bool()       // this request is valid
+  val amo_op    = UInt(4.W)    // atomic memory operation to perform
+  val size      = UInt(2.W)    // 2'b10 --> word operation, 2'b11 --> double word operation
+  val operand_a = UInt(64.W)   // address
+  val operand_b = UInt(64.W)   // data as layuoted in the register
+}
+
+// AMO response coming from cache.
+class amo_resp_t extends Bundle {
+  val ack = Bool()         // response is valid
+  val result = UInt(64.W)  // sign-extended, result
+}
 //
 
 //
