@@ -257,7 +257,7 @@ object wt_dcache_ctrl extends App {
     val CachedRegionAddrBase  = Array(0, 0) // base which needs to match
     val CachedRegionLength    = Array(0, 0) // bit mask which bits to consider when matching the rule
                                             // cache config
-    val Axi64BitCompliant = 0     // set to 1 when using in conjunction with 64bit AXI bus adapter
+    val Axi64BitCompliant = false // set to 1 when using in conjunction with 64bit AXI bus adapter
     val SwapEndianess     = 0     // set to 1 to swap endianess inside L1.5 openpiton adapter
                                   //
     val DmBaseAddress  = 0         // offset of the debug module

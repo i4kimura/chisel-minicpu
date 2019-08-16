@@ -83,7 +83,7 @@ object wt_cache_pkg
   class tx_stat_t extends Bundle {
     val vld = Bool()
     val be  = UInt(8.W)
-    val ptr = UInt(log2(DCACHE_WBUF_DEPTH))
+    val ptr = UInt(log2(DCACHE_WBUF_DEPTH).W)
   }
 
   // local interfaces between caches and L15 adapter
@@ -112,28 +112,28 @@ object wt_cache_pkg
   }
 
   class icache_rtrn_t extends Bundle {
-    val rtype = UInt()                    // icache_in_t() // see definitions above
+    val rtype = UInt(1.W)                 // icache_in_t() // see definitions above
     val data  = UInt(ICACHE_LINE_WIDTH.W) // full cache line width
-    val inv   = new cache_inval_t()           // invalidation vector
+    val inv   = new cache_inval_t()       // invalidation vector
     val tid   = UInt(CACHE_ID_WIDTH.W)    // threadi id (used as transaction id in Ariane)
   }
 
   // dcache interface
   class dcache_req_t extends Bundle {
-    val rtype  = UInt() // dcache_out_t()         // see definitions above
+    val rtype  = UInt(2.W)              // dcache_out_t(), see definitions above
     val size   = UInt(3.W)              // transaction size: 000=Byte 001=2Byte 010=4Byte 011=8Byte 111=Cache line (16/32Byte)
     val way    = UInt(L1D_WAY_WIDTH.W)  // way to replace
     val paddr  = UInt(64.W)             // physical address
     val data   = UInt(64.W)             // word width of processor (no block stores at the moment)
     val nc     = Bool()                 // noncacheable
     val tid    = UInt(CACHE_ID_WIDTH.W) // threadi id (used as transaction id in Ariane)
-    val amo_op = UInt()                 // amo opcode
+    val amo_op = UInt(4.W)              // amo opcode
   }
 
   class dcache_rtrn_t extends Bundle {
-    val rtype = UInt()                    // dcache_in_t() // see definitions above
+    val rtype = UInt(3.W)                 // dcache_in_t() // see definitions above
     val data  = UInt(DCACHE_LINE_WIDTH.W) // full cache line width
-    val inv   = new cache_inval_t()           // invalidation vector
+    val inv   = new cache_inval_t()       // invalidation vector
     val tid   = UInt(CACHE_ID_WIDTH.W)    // threadi id (used as transaction id in Ariane)
   }
 
@@ -181,7 +181,7 @@ object wt_cache_pkg
   class l15_req_t extends Bundle {
     val l15_val                  = Bool()              // valid signal, asserted with request
     val l15_req_ack              = Bool()              // ack for response
-    val l15_rqtype               = UInt()   // l15_reqtypes_t()                // see below for encoding
+    val l15_rqtype               = UInt(5.W)           // l15_reqtypes_t()    // see below for encoding
     val l15_nc                   = Bool()      // non-cacheable bit
     val l15_size                 = UInt(3.W)                  // transaction size: 000=Byte 001=2Byte 010=4Byte 011=8Byte 111=Cache line (16/32Byte)
     val l15_threadid             = UInt(L15_TID_WIDTH.W)              // currently 0 or 1
@@ -201,7 +201,7 @@ object wt_cache_pkg
     val l15_ack                  = Bool()           // ack for request struct
     val l15_header_ack           = Bool()           // ack for request struct
     val l15_val                  = Bool()           // valid signal for return struct
-    val l15_returntype           = UInt() // l15_rtrntypes_t()            // see below for encoding
+    val l15_returntype           = UInt(4.W)        // l15_rtrntypes_t()    // see below for encoding
     val l15_l2miss               = Bool() // unused in Ariane
     val l15_error                = UInt(2.W) // unused in openpiton
     val l15_noncacheable         = Bool() // non-cacheable bit
@@ -236,30 +236,22 @@ object wt_cache_pkg
 
   // def icache_way_bin2oh (in: UInt(log2(ICACHE_SET_ASSOC))) : UInt(ICACHE_SET_ASSOC) = {
   def icache_way_bin2oh (in: UInt) : UInt = {
-    var out = UInt(ICACHE_SET_ASSOC.W)
-    out     := 0.U
-    out(in) := 1.U
-    return out
+    return 0.U.bitSet(in, true.B)
   }
 
   // def dcache_way_bin2oh (in: UInt(log2(DCACHE_SET_ASSOC))) : UInt(DCACHE_SET_ASSOC) = {
   def dcache_way_bin2oh (in: UInt) : UInt = {
-    var out = UInt(DCACHE_SET_ASSOC.W)
-    out     := 0.U
-    out(in) := 1.U
-    return out
+    return 0.U.bitSet(in, true.B)
   }
 
   // def dcache_cl_bin2oh(in: UInt(log2(DCACHE_NUM_BANKS).W)) : UInt(DCACHE_NUM_BANKS) = {
   def dcache_cl_bin2oh(in: UInt) : UInt = {
-    val out = Wire(Vec(DCACHE_NUM_BANKS, Bool()))
-    for(i <- 0 until DCACHE_NUM_BANKS) { out(i) := Mux(i.U === in, true.B, false.B) }
-    return out.asUInt
+    return 0.U.bitSet(in, true.B)
   }
 
   // def popcnt64(in: UInt(64.W)) : UInt(5.W) = {
   def popcnt64(in: UInt) : UInt = {
-    var cnt = UInt(6.W)
+    var cnt = Wire(UInt(6.W))
     for (k <- 0 until 64) {
       cnt = cnt + in(k)
     }
@@ -268,13 +260,13 @@ object wt_cache_pkg
 
   // def toByteEnable8(offset: UInt(3.W), size: UInt(2.W)) : UInt(8.W) = {
   def toByteEnable8(offset: UInt, size: UInt) : UInt = {
-    var be = Vec(8, Bool())
-    be := 0.U
-    be := true.B // default dword
+    val be = Wire(Vec(8, Bool()))
+    for (i <- 0 until 8) { be(i) := false.B }
     switch (size) {
-      is (0.U) { be(offset)                := true.B } // byte
+      is (0.U) { be(offset)                              := true.B   } // byte
       is (1.U) { for(i <- 0 until 2) { be(offset + i.U)  := true.B } } // hword
       is (2.U) { for(i <- 0 until 4) { be(offset + i.U)  := true.B } } // word
+      is (3.U) { for(i <- 0 until 8) { be(i)             := true.B } } // word
     }
     return be.asUInt
   }
@@ -282,12 +274,12 @@ object wt_cache_pkg
   // openpiton requires the data to be replicated in case of smaller sizes than dwords
   // def repData64(data: UInt(64.W), offset: UInt(3.W), size: UInt(2.W)) : UInt(64.W) = {
   def repData64(data: UInt, offset: UInt, size: UInt) : UInt = {
-    var out = Vec(8, UInt(8.W))
-    out  := data // dword
+    val out = Wire(Vec(8, UInt(8.W)))
 
-    val dataVec = Vec(8, UInt(8.W))
+    val dataVec = Wire(Vec(8, UInt(8.W)))
     for(k <- 0 until 8) { dataVec(k) := data(8 * k + 7, 8 * k) }
 
+    out := dataVec // dword
     switch(size) {
       is (0.U) {
         for(k <- 0 until 8) { out(k) := dataVec(offset) }
@@ -315,7 +307,7 @@ object wt_cache_pkg
   // one after the other
   // def toSize64 (be: UInt(8.W)) : UInt(2.W) = {
   def toSize64 (be: UInt) : UInt = {
-    val size = UInt(2.W)
+    val size = Wire(UInt(2.W))
     size := 0.U
     switch(be) {
       is (0xff.U)                         { size := 3.U }  // dword
@@ -333,8 +325,8 @@ object wt_cache_pkg
   // 111: DCACHE line
   // def paddrSizeAlign(paddr: UInt(64.W), size: UInt(3.W)) : UInt(64.W) = {
   def paddrSizeAlign(paddr: UInt, size: UInt) : UInt = {
-    val out = Vec(64, Bool())
-    out := paddr
+    val out = Wire(Vec(64, Bool()))
+    out := paddr.toBools
     switch (size) {
       is (1.U) { for (i <- 0 until 1) { out(i) := false.B } }
       is (2.U) { for (i <- 0 until 2) { out(i) := false.B } }

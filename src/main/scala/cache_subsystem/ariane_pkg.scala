@@ -33,7 +33,7 @@ object ariane_pkg
     val CachedRegionAddrBase  : Array[Int] // base which needs to match
     val CachedRegionLength    : Array[Int] // bit mask which bits to consider when matching the rule
                                                            // cache config
-    val Axi64BitCompliant : Int     // set to 1 when using in conjunction with 64bit AXI bus adapter
+    val Axi64BitCompliant : Boolean // set to 1 when using in conjunction with 64bit AXI bus adapter
     val SwapEndianess     : Int     // set to 1 to swap endianess inside L1.5 openpiton adapter
                                     //
     val DmBaseAddress : Int         // offset of the debug module

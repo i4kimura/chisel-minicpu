@@ -29,9 +29,9 @@ import chisel3.Bool
 
 import scala.math.{abs, round, sin, cos, Pi, pow}
 
-class rr_arb_tree (
-  NumIn    : Int  = 64,
-  DataWidth: Int  = 32,
+class rr_arb_tree[T<:Data](
+  dtype    : T       = UInt,
+  NumIn    : Int     = 64,
   ExtPrio  : Boolean = false, // set to 1'b1 to enable
   AxiVldRdy: Boolean = false, // treat req/gnt as vld/rdy
   LockIn   : Boolean = false  // set to 1'b1 to enable
@@ -44,11 +44,11 @@ class rr_arb_tree (
     /* verilator lint_off UNOPTFLAT */
     val gnt_o = Output(Vec(NumIn, Bool()))
     /* verilator lint_on UNOPTFLAT */
-    val data_i = Input(Vec(NumIn, UInt(DataWidth.W)))
+    val data_i = Input(Vec(NumIn, dtype))
     // arbitrated output
     val gnt_i = Input (Bool())
     val req_o = Output(Bool())
-    val data_o = Output(UInt(DataWidth.W))
+    val data_o = Output(dtype)
     val idx_o = Output(UInt(log2Ceil(NumIn).W))
   })
 
@@ -65,7 +65,7 @@ class rr_arb_tree (
 
     /* verilator lint_off UNOPTFLAT */
     val index_nodes = WireInit(VecInit(Seq.fill(NumLevel2Pow  )(0.U(NumLevels.W)))) // used to propagate the indices
-    val data_nodes  = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(0.U(DataWidth.W)))) // used to propagate the data
+    val data_nodes  = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(0.U(dtype.getWidth.W)))) // used to propagate the data
     val gnt_nodes   = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(false.B)))          // used to propagate the grant to masters
     val req_nodes   = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(false.B)))          // used to propagate the requests to slave
     /* lint_off */

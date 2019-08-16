@@ -31,19 +31,19 @@ class wt_dcache_missunit (
     val amo_req_i  = Input (new amo_req_t())
     val amo_resp_o = Output(new amo_resp_t())
     // miss handling interface (ld, ptw, wbuffer)
-    val miss_req_i      = Input (UInt(NumPorts.W))
-    val miss_ack_o      = Output(UInt(NumPorts.W))
-    val miss_nc_i       = Input (UInt(NumPorts.W))
-    val miss_we_i       = Input (UInt(NumPorts.W))
+    val miss_req_i      = Input (Vec(NumPorts, Bool()))
+    val miss_ack_o      = Output(Vec(NumPorts, Bool()))
+    val miss_nc_i       = Input (Vec(NumPorts, Bool()))
+    val miss_we_i       = Input (Vec(NumPorts, Bool()))
     val miss_wdata_i    = Input (Vec(NumPorts, UInt(64.W)))
     val miss_paddr_i    = Input (Vec(NumPorts, UInt(64.W)))
     val miss_vld_bits_i = Input (Vec(NumPorts, UInt(DCACHE_SET_ASSOC.W)))
     val miss_size_i     = Input (Vec(NumPorts, UInt(3.W)))
     val miss_id_i       = Input (Vec(NumPorts, UInt(CACHE_ID_WIDTH.W)))
     // signals that the request collided with a pending read
-    val miss_replay_o   = Output(UInt(NumPorts.W))
+    val miss_replay_o   = Output(Vec(NumPorts, Bool()))
     // signals response from memory
-    val miss_rtrn_vld_o = Output(UInt(NumPorts.W))
+    val miss_rtrn_vld_o = Output(Vec(NumPorts, Bool()))
     val miss_rtrn_id_o  = Output(UInt(CACHE_ID_WIDTH.W))
     // from writebuffer
     val tx_paddr_i = Input (Vec(DCACHE_MAX_TX, UInt(64.W)))   // used to check for address collisions with read operations
@@ -113,8 +113,8 @@ class wt_dcache_missunit (
   val miss_port_idx = Wire(UInt(log2Ceil(NumPorts).W))
   val cnt_d = Wire(UInt(DCACHE_CL_IDX_WIDTH.W))
   val cnt_q = RegInit (0.U(DCACHE_CL_IDX_WIDTH.W))
-  val miss_req_masked_d = Wire(UInt(NumPorts.W))
-  val miss_req_masked_q = RegInit(0.U(NumPorts.W))
+  val miss_req_masked_d = Wire(Vec(NumPorts, Bool()))
+  val miss_req_masked_q = RegInit(VecInit(Seq.fill(NumPorts)(false.B)))
 
   val inv_vld     = Wire(Bool())
   val inv_vld_all = Wire(Bool())
@@ -123,11 +123,10 @@ class wt_dcache_missunit (
   val store_ack   = Wire(Bool())
   val amo_ack     = Wire(Bool())
 
-  val mshr_rdrd_collision_d = Wire(UInt(NumPorts.W))
-  val mshr_rdrd_collision_q = RegInit(0.U(NumPorts.W))
-  val mshr_rdrd_collision = Wire(UInt(NumPorts.W))
-  var tx_rdwr_collision   = Wire(Bool())
-  val mshr_rdwr_collision = Wire(Bool())
+  val mshr_rdrd_collision_d = Wire(Vec(NumPorts, Bool()))
+  val mshr_rdrd_collision_q = RegInit(VecInit(Seq.fill(NumPorts)(false.B)))
+  val mshr_rdrd_collision   = Wire(Vec(NumPorts, Bool()))
+  val mshr_rdwr_collision   = Wire(Bool())
 
   ///////////////////////////////////////////////////////
   // input arbitration and general control sigs
@@ -137,9 +136,11 @@ class wt_dcache_missunit (
   cnt_d           := Mux(flush_en, cnt_q + 1.U, 0.U)
   flush_done      := cnt_q === (DCACHE_NUM_WORDS-1).U
 
-  miss_req_masked_d := Mux(lock_reqs,  miss_req_masked_q,
-                       Mux(mask_reads, io.miss_we_i & io.miss_req_i,
-                           io.miss_req_i))
+  for(i <- 0 until NumPorts) {
+    miss_req_masked_d(i) := Mux(lock_reqs,  miss_req_masked_q(i),
+                            Mux(mask_reads, io.miss_we_i(i) & io.miss_req_i(i),
+                               io.miss_req_i(i)))
+  }
   miss_is_write     := io.miss_we_i(miss_port_idx)
 
   // read port arbiter
@@ -148,7 +149,7 @@ class wt_dcache_missunit (
   miss_port_idx := i_lzc_reqs.io.cnt_o
   // i_lzc_reqs.io.empty_o
 
-  io.miss_ack_o := 0.U
+  io.miss_ack_o := VecInit(Seq.fill(NumPorts)(false.B))
   when (!amo_sel) {
     io.miss_ack_o(miss_port_idx) := io.mem_data_ack_i & io.mem_data_req_o
   }
@@ -159,13 +160,13 @@ class wt_dcache_missunit (
 
   // find invalid cache line
   val i_lzc_inv = Module(new lzc(DCACHE_SET_ASSOC))
-  i_lzc_inv.io.in_i    := ~io.miss_vld_bits_i(miss_port_idx)
+  i_lzc_inv.io.in_i    := (~io.miss_vld_bits_i(miss_port_idx)).toBools
   inv_way        := i_lzc_inv.io.cnt_o
   all_ways_valid := i_lzc_inv.io.empty_o
 
 
   // generate random cacheline index
-  val i_lfsr_inv = Module(new lfsr_8bit(DCACHE_SET_ASSOC))
+  val i_lfsr_inv = Module(new lfsr_8bit(0, DCACHE_SET_ASSOC))
   i_lfsr_inv.io.en_i := update_lfsr
   // i_lfsr_inv.refill_way_oh
   rnd_way := i_lfsr_inv.io.refill_way_bin
@@ -197,7 +198,7 @@ class wt_dcache_missunit (
   mshr_rdwr_collision := (mshr_q.paddr(63, DCACHE_OFFSET_WIDTH) === io.miss_paddr_i(NumPorts-1)(63, DCACHE_OFFSET_WIDTH)) && mshr_vld_q
 
   // read collides with inflight TX
-  tx_rdwr_collision = false.B
+  var tx_rdwr_collision = WireInit(false.B)
   for(k <- 0 until DCACHE_MAX_TX) {
     tx_rdwr_collision = tx_rdwr_collision | (io.miss_paddr_i(miss_port_idx)(63, DCACHE_OFFSET_WIDTH) === io.tx_paddr_i(k)(63, DCACHE_OFFSET_WIDTH)) && io.tx_vld_i(k)
   }
@@ -211,16 +212,26 @@ class wt_dcache_missunit (
                                                  io.amo_req_i.operand_b(31, 0)),
                                                  io.amo_req_i.operand_b)
 
+  val amo_rtrn_mux_word_w = Wire(UInt(32.W))
   // note: openpiton returns a full cacheline!
   if (Axi64BitCompliant) { // begin : gen_axi_rtrn_mux
     amo_rtrn_mux := io.mem_rtrn_i.data(63, 0)
   } else {
-    amo_rtrn_mux := io.mem_rtrn_i.data(io.amo_req_i.operand_a(DCACHE_OFFSET_WIDTH-1,3)*64 + 63, io.amo_req_i.operand_a(DCACHE_OFFSET_WIDTH-1,3)*64)
+    val mem_rtrn_vec_w = Wire(Vec(io.mem_rtrn_i.data.getWidth / 64, UInt(64.W)))
+    for(i <- 0 until io.mem_rtrn_i.data.getWidth / 64) {
+      mem_rtrn_vec_w(i) := io.mem_rtrn_i.data(64*i + 63, 64*i)
+    }
+    amo_rtrn_mux := mem_rtrn_vec_w(io.amo_req_i.operand_a(DCACHE_OFFSET_WIDTH-1, 3))
+  }
+  when (io.amo_req_i.operand_a(2)) {
+    amo_rtrn_mux_word_w := amo_rtrn_mux(63, 32)
+  } .otherwise {
+    amo_rtrn_mux_word_w := amo_rtrn_mux(31,  0)
   }
 
   // always sign extend 32bit values
-  io.amo_resp_o.result := Mux(io.amo_req_i.size === 2.U, Cat(VecInit(Seq.fill(32, amo_rtrn_mux(io.amo_req_i.operand_a*2)*32 + 31)).asUInt,
-                                                             amo_rtrn_mux(io.amo_req_i.operand_a(2)*32 + 31, io.amo_req_i.operand_a(2)*32)),
+  io.amo_resp_o.result := Mux(io.amo_req_i.size === 2.U,
+                              Cat(VecInit(Seq.fill(32)(amo_rtrn_mux_word_w(31))).asUInt, amo_rtrn_mux_word_w),
                               amo_rtrn_mux)
 
   amo_req_d := io.amo_req_i.req
@@ -271,7 +282,7 @@ class wt_dcache_missunit (
   inv_vld_all        := false.B
   sc_fail            := false.B
   sc_pass            := false.B
-  io.miss_rtrn_vld_o := 0.U
+  io.miss_rtrn_vld_o := VecInit(Seq.fill(NumPorts)(false.B))
   when (io.mem_rtrn_vld_i) {
     switch (io.mem_rtrn_i.rtype) {
       is (dcache_load_ack_s) {
@@ -283,7 +294,7 @@ class wt_dcache_missunit (
       is (dcache_store_ack_s) {
         when (stores_inflight_q =/= 0.U) {
           store_ack := true.B
-          io.miss_rtrn_vld_o(NumPorts-1) := true.B
+          io.miss_rtrn_vld_o((NumPorts-1).U) := true.B
         }
       }
       is (dcache_atomic_ack_s) {
@@ -353,7 +364,7 @@ class wt_dcache_missunit (
   io.mem_data_o.rtype := DCACHE_LOAD_REQ
   io.mem_data_req_o   := false.B
   io.amo_resp_o.ack   := false.B
-  io.miss_replay_o    := 0.U
+  io.miss_replay_o    := VecInit(Seq.fill(NumPorts)(false.B))
 
   // disabling cache is possible anytime, enabling goes via flush
   enable_d         := enable_q & io.enable_i
@@ -384,7 +395,7 @@ class wt_dcache_missunit (
           state_d     := drain_s
         }
         // we've got a miss to handle
-      } .elsewhen (miss_req_masked_d.orR) {
+      } .elsewhen (miss_req_masked_d.asUInt.orR) {
         // this is a write miss, just pass through (but check whether write collides with MSHR)
         when (miss_is_write) {
           // stall in case this write collides with the MSHR address
@@ -443,7 +454,7 @@ class wt_dcache_missunit (
     is (drain_s) {
       mask_reads := true.B
       // these are writes, check whether they collide with MSHR
-      when (miss_req_masked_d.orR && !mshr_rdwr_collision) {
+      when (miss_req_masked_d.asUInt.orR && !mshr_rdwr_collision) {
         io.mem_data_req_o            := true.B
         io.mem_data_o.rtype          := DCACHE_STORE_REQ
       }
@@ -470,7 +481,7 @@ class wt_dcache_missunit (
       io.mem_data_o.rtype := DCACHE_ATOMIC_REQ
       amo_sel          := true.B
       // if this is an LR, we need to consult the backoff counter
-      when ((io.amo_req_i.amo_op != AMO_LR) || sc_backoff_over) {
+      when ((io.amo_req_i.amo_op =/= AMO_LR) || sc_backoff_over) {
         io.mem_data_req_o   := true.B
         when (io.mem_data_ack_i) {
           state_d := amo_wait_s
@@ -507,6 +518,6 @@ class wt_dcache_missunit (
 }
 
 
-object wt_dcache_mem extends App {
-  chisel3.Driver.execute(args, () => new wt_dcache_missunit())
+object wt_dcache_missunit extends App {
+  chisel3.Driver.execute(args, () => new wt_dcache_missunit(false, 1, 3))
 }

@@ -48,9 +48,15 @@ class exp_backoff (
   lfsr_d := Mux(io.set_i, Cat(lfsr, lfsr_q(WIDTH-1,1)), lfsr_q)
 
   // mask the wait counts with exponentially increasing mask (shift reg)
-  mask_d := Mux(io.clr_i, 0.U,
-            Mux(io.set_i, Cat(VecInit(Seq.fill(WIDTH-MaxExp)(0.U(1.W))).asUInt, mask_q(MaxExp-2,0), 0.U(1.W)),
-                          mask_q))
+  if (WIDTH == MaxExp) {
+    mask_d := Mux(io.clr_i, 0.U,
+              Mux(io.set_i, Cat(mask_q(MaxExp-2,0), 0.U(1.W)),
+                            mask_q))
+  } else {
+    mask_d := Mux(io.clr_i, 0.U,
+              Mux(io.set_i, Cat(VecInit(Seq.fill(WIDTH-MaxExp)(false.B)).asUInt, mask_q(MaxExp-2,0), 0.U(1.W)),
+                  mask_q))
+  }
 
   cnt_d :=  Mux(io.clr_i, 0.U,
             Mux(io.set_i, mask_q & lfsr_q,

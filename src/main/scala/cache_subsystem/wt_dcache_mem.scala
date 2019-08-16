@@ -120,7 +120,7 @@ class wt_dcache_mem
   val rd_req = Wire(Bool())
   val wire_zero = Wire(Vec(NumPorts, UInt(1.W)))
   for (i <- 0 until NumPorts) { wire_zero(i) := 0.U }
-  val i_rr_arb_tree = Module(new rr_arb_tree(NumPorts, 1))
+  val i_rr_arb_tree = Module(new rr_arb_tree(UInt(1.W), NumPorts, false, false, false))
   i_rr_arb_tree.io.flush_i := false.B
   i_rr_arb_tree.io.rr_i    := 0.U
   i_rr_arb_tree.io.req_i   := rd_req_masked
@@ -142,12 +142,12 @@ class wt_dcache_mem
   }
 
   for(k <- 0 until NumPorts) {
-    bank_collision(k) := io.rd_off_i(k)(DCACHE_OFFSET_WIDTH-1,3) === io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3)
+    bank_collision(k) := (io.rd_off_i(k)(DCACHE_OFFSET_WIDTH-1,3) === io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3))
   }
 
-  when (io.wr_cl_vld_i & io.wr_cl_we_i.orR) {
+  when (io.wr_cl_vld_i && io.wr_cl_we_i.orR) {
     bank_req := 1.U
-    bank_we  := true.B
+    bank_we  := 1.U
     for(i <- 0 until DCACHE_NUM_BANKS) { bank_idx(i) := io.wr_cl_idx_i }
   } .otherwise {
     when (rd_acked) {

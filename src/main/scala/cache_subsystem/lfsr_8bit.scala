@@ -34,8 +34,7 @@ class lfsr_8bit (
 
   when (io.en_i) { shift_d := Cat(shift_q(6, 0), shift_in) }
   // output assignment
-  val refill_way_oh_vec = Wire(WIDTH, Bool())
-  refill_way_oh_vec := 0.U
+  val refill_way_oh_vec = WireInit(VecInit(Seq.fill(WIDTH)(false.B)))
   refill_way_oh_vec(shift_q(LOG_WIDTH-1,0)) := true.B
 
   io.refill_way_oh  := refill_way_oh_vec.asUInt

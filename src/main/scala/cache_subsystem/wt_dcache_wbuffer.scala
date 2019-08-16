@@ -46,7 +46,7 @@ import ariane_pkg._
 //    word has been evicted from the write buffer.
 
 class wt_dcache_wbuffer (
-  ArianeCfg:ariane_cfg_t = ArianeDefaultConfig     // contains cacheable regions
+  ArianeCfg:ariane_cfg_t     // contains cacheable regions
 ) extends Module {
   val io = IO(new Bundle {
     val cache_en_i = Input(Bool())  // writes are treated as NC if disabled
@@ -92,18 +92,18 @@ class wt_dcache_wbuffer (
     // to forwarding logic and miss unit
     val wbuffer_data_o = Output(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
     val tx_paddr_o = Output(Vec(DCACHE_MAX_TX, UInt(64.W)))           // used to check for address collisions with read operations
-    val tx_vld_o   = Output(UInt(DCACHE_MAX_TX.W))
+    val tx_vld_o   = Output(Vec(DCACHE_MAX_TX, Bool()))
   })
 
-  val tx_stat_d = Wire(Vec(DCACHE_MAX_TX, new tx_stat_t()))
-  val tx_stat_q = Reg(Vec(DCACHE_MAX_TX, new tx_stat_t()))
-  val wbuffer_d = Wire(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
-  val wbuffer_q = Reg(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
-  val valid          = Wire(UInt(DCACHE_WBUF_DEPTH.W))
-  val dirty          = Wire(UInt(DCACHE_WBUF_DEPTH.W))
-  val tocheck        = Wire(UInt(DCACHE_WBUF_DEPTH.W))
-  val wbuffer_hit_oh = Wire(UInt(DCACHE_WBUF_DEPTH.W))
-  val inval_hit      = Wire(UInt(DCACHE_WBUF_DEPTH.W))
+  val tx_stat_d      = Wire(Vec(DCACHE_MAX_TX, new tx_stat_t()))
+  val tx_stat_q      = Reg(Vec(DCACHE_MAX_TX, new tx_stat_t()))
+  val wbuffer_d      = Wire(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
+  val wbuffer_q      = Reg(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
+  val valid          = Wire(Vec(DCACHE_WBUF_DEPTH, Bool()))
+  val dirty          = Wire(Vec(DCACHE_WBUF_DEPTH, Bool()))
+  val tocheck        = Wire(Vec(DCACHE_WBUF_DEPTH, Bool()))
+  val wbuffer_hit_oh = Wire(Vec(DCACHE_WBUF_DEPTH, Bool()))
+  val inval_hit      = Wire(Vec(DCACHE_WBUF_DEPTH, Bool()))
   val bdirty         = Wire(Vec(DCACHE_WBUF_DEPTH, UInt(8.W)))
 
   val next_ptr = Wire(UInt(log2Ceil(DCACHE_WBUF_DEPTH).W))
@@ -156,7 +156,8 @@ class wt_dcache_wbuffer (
   io.miss_nc_o := nc_pending_q
 
   // noncacheable if request goes to I/O space, or if cache is disabled
-  addr_is_nc := (~io.cache_en_i) | (~is_inside_cacheable_regions(ArianeCfg, Cat(io.req_port_i.address_tag, Seq.fill(DCACHE_INDEX_WIDTH)(false.B))))
+  addr_is_nc := (~io.cache_en_i) |
+                (~is_inside_cacheable_regions(ArianeCfg, Cat(io.req_port_i.address_tag, VecInit(Seq.fill(DCACHE_INDEX_WIDTH)(false.B)).asUInt)))
 
   io.miss_we_o       := true.B
   io.miss_vld_bits_o := 0.U
@@ -180,7 +181,7 @@ class wt_dcache_wbuffer (
 
   // get byte offset
   val i_vld_bdirty = Module(new lzc(8))
-  i_vld_bdirty.io.in_i := bdirty(dirty_ptr)
+  i_vld_bdirty.io.in_i := bdirty(dirty_ptr).toBools
   bdirty_off := i_vld_bdirty.io.cnt_o
   // i_vld_bdirty.io.empty_o :=
 
@@ -189,7 +190,7 @@ class wt_dcache_wbuffer (
   io.miss_id_o    := tx_id
 
   // is there any dirty word to be transmitted, and is there a free TX slot?
-  io.miss_req_o := (dirty.orR) && free_tx_slots
+  io.miss_req_o := (dirty.foldLeft(false.B)(_|_)) && free_tx_slots
 
   // get size of aligned words, and the corresponding byte enables
   // note: openpiton can only handle aligned offsets + size, and hence
@@ -208,7 +209,7 @@ class wt_dcache_wbuffer (
   ///////////////////////////////////////////////////////
 
   // TODO: todo: make this fall through if timing permits it
-  val i_rtrn_id_fifo = Module(new fifo_v3(false, log2Ceil(DCACHE_MAX_TX), DCACHE_MAX_TX))
+  val i_rtrn_id_fifo = Module(new fifo_v3(UInt(CACHE_ID_WIDTH.W), false, DCACHE_MAX_TX))
   i_rtrn_id_fifo.io.flush_i    := false.B
   i_rtrn_id_fifo.io.testmode_i := false.B
   // i_rtrn_id_fifo.io.full_o     :=
@@ -219,7 +220,7 @@ class wt_dcache_wbuffer (
   rtrn_id := i_rtrn_id_fifo.io.data_o
   i_rtrn_id_fifo.io.pop_i      := evict
 
-  tx_stat_d   := tx_stat_q
+  for (i <- 0 until DCACHE_MAX_TX) { tx_stat_d(i) := tx_stat_q(i) }
   evict       := false.B
   io.wr_req_o := 0.U
 
@@ -246,15 +247,15 @@ class wt_dcache_wbuffer (
     tx_stat_d(tx_id).be  := tx_be
   }
 
-  free_tx_slots := (~io.tx_vld_o).orR
+  free_tx_slots := io.tx_vld_o.map(x => ~x).foldLeft(false.B)(_|_)
 
   // next word to lookup in the cache
-  val i_tx_id_rr = Module(new rr_arb_tree(DCACHE_MAX_TX, 1, false, false, true))
-  i_tx_id_rr.io.flush_i := 0.U
+  val i_tx_id_rr = Module(new rr_arb_tree(UInt(1.W), DCACHE_MAX_TX, false, false, true))
+  i_tx_id_rr.io.flush_i := false.B
   i_tx_id_rr.io.rr_i    := 0.U
-  i_tx_id_rr.io.req_i   := ~io.tx_vld_o
+  i_tx_id_rr.io.req_i   := ~(io.tx_vld_o.asUInt)
   // i_tx_id_rr.io.gnt_o   :=
-  i_tx_id_rr.io.data_i  := 0.U
+  // i_tx_id_rr.io.data_i  := 0.U
   i_tx_id_rr.io.gnt_i   := dirty_rd_en
   // i_tx_id_rr.io.req_o   :=
   // i_tx_id_rr.io.data_o  :=
@@ -270,7 +271,7 @@ class wt_dcache_wbuffer (
   // trigger TAG readout in cache
   io.rd_tag_only_o := true.B
   rd_paddr         := wbuffer_check_mux.wtag << 3
-  io.rd_req_o      := tocheck.orR
+  io.rd_req_o      := tocheck.foldLeft(false.B)(_|_)
   io.rd_tag_o      := rd_tag_q;//delay by one cycle
   io.rd_idx_o      := rd_paddr(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH)
   io.rd_off_o      := rd_paddr(DCACHE_OFFSET_WIDTH-1, 0)
@@ -320,13 +321,13 @@ class wt_dcache_wbuffer (
     tocheck(k)       := (~wbuffer_q(k).checked) & valid(k)
   }
 
-  wr_ptr     := Mux(wbuffer_hit_oh.orR, hit_ptr, next_ptr)
-  io.empty_o := ~(valid.orR)
-  rdy        := (wbuffer_hit_oh.orR) | (~full)
+  wr_ptr     := Mux(wbuffer_hit_oh.foldLeft(false.B)(_|_), hit_ptr, next_ptr)
+  io.empty_o := ~(valid.foldLeft(false.B)(_|_))
+  rdy        := (wbuffer_hit_oh.foldLeft(false.B)(_|_)) | (~full)
 
   // next free entry in the buffer
   val i_vld_lzc = Module(new lzc(DCACHE_WBUF_DEPTH ))
-  i_vld_lzc.io.in_i    := ~valid
+  i_vld_lzc.io.in_i    := valid.map(x => ~x)
   next_ptr := i_vld_lzc.io.cnt_o
   full     := i_vld_lzc.io.empty_o
 
@@ -337,7 +338,7 @@ class wt_dcache_wbuffer (
   // i_hit_lzc.io.empty_o :=
 
   // next dirty word to serve
-  val i_dirty_rr = Module(new rr_arb_tree(DCACHE_WBUF_DEPTH, true, wbuffer_t))
+  val i_dirty_rr = Module(new rr_arb_tree(new wbuffer_t, DCACHE_WBUF_DEPTH, false, false, true))
   i_dirty_rr.io.flush_i := 0.U
   i_dirty_rr.io.rr_i    := 0.U
   i_dirty_rr.io.req_i   := dirty
@@ -349,7 +350,7 @@ class wt_dcache_wbuffer (
   dirty_ptr         := i_dirty_rr.io.idx_o
 
   // next word to lookup in the cache
-  val i_clean_rr = Module(new rr_arb_tree(DCACHE_WBUF_DEPTH, wbuffer_t))
+  val i_clean_rr = Module(new rr_arb_tree(new wbuffer_t, DCACHE_WBUF_DEPTH, false, false, false))
   i_clean_rr.io.flush_i:= 0.U
   i_clean_rr.io.rr_i   := 0.U
   i_clean_rr.io.req_i  := tocheck
@@ -454,7 +455,7 @@ class wt_dcache_wbuffer (
   ///////////////////////////////////////////////////////
 
   wbuffer_q     := wbuffer_d
-  tx_stat_q     := tx_stat_d
+  for (i <- 0 until DCACHE_MAX_TX) { tx_stat_q(i) := tx_stat_d(i) }
   nc_pending_q  := nc_pending_d
   check_ptr_q   := check_ptr_d
   check_ptr_q1  := check_ptr_q
@@ -533,7 +534,7 @@ object wt_dcache_wbuffer extends App {
     val CachedRegionAddrBase  = Array(0, 0) // base which needs to match
     val CachedRegionLength    = Array(0, 0) // bit mask which bits to consider when matching the rule
                                             // cache config
-    val Axi64BitCompliant = 0     // set to 1 when using in conjunction with 64bit AXI bus adapter
+    val Axi64BitCompliant = false // set to 1 when using in conjunction with 64bit AXI bus adapter
     val SwapEndianess     = 0     // set to 1 to swap endianess inside L1.5 openpiton adapter
                                   //
     val DmBaseAddress  = 0         // offset of the debug module
