@@ -16,10 +16,10 @@ class wt_dcache_mem
     val rd_tag_i      = Input (Vec(NumPorts, UInt(DCACHE_TAG_WIDTH.W   )))              // tag in - comes one cycle later
     val rd_idx_i      = Input (Vec(NumPorts, UInt(DCACHE_CL_IDX_WIDTH.W)))
     val rd_off_i      = Input (Vec(NumPorts, UInt(DCACHE_OFFSET_WIDTH.W)))
-    val rd_req_i      = Input (UInt(NumPorts.W))                                    // read the word at offset off_i[:3] in all ways
-    val rd_tag_only_i = Input (UInt(NumPorts.W))                                    // only do a tag/valid lookup, no access to data arrays
-    val rd_prio_i     = Input (UInt(NumPorts.W))                                    // 0: low prio, 1: high prio
-    val rd_ack_o      = Output(UInt(NumPorts.W))
+    val rd_req_i      = Input (Vec(NumPorts, Bool()))                                    // read the word at offset off_i[:3] in all ways
+    val rd_tag_only_i = Input (Vec(NumPorts, Bool()))                                    // only do a tag/valid lookup, no access to data arrays
+    val rd_prio_i     = Input (Vec(NumPorts, Bool()))                                    // 0: low prio, 1: high prio
+    val rd_ack_o      = Output(Vec(NumPorts, Bool()))
     val rd_vld_bits_o = Output(Vec(DCACHE_SET_ASSOC, Bool()))
     val rd_hit_oh_o   = Output(Vec(DCACHE_SET_ASSOC, Bool()))
     val rd_data_o     = Output(UInt(64.W))
@@ -71,8 +71,8 @@ class wt_dcache_mem
   val vld_sel_q = RegInit(0.U(log2Ceil(NumPorts).W))
 
   val wbuffer_hit_oh   = Wire(Vec(DCACHE_WBUF_DEPTH, Bool()))
-  val wbuffer_be       = Wire(UInt(8.W))
-  val wbuffer_rdata    = Wire(UInt(64.W))
+  val wbuffer_be       = Wire(Vec(8, Bool()))
+  val wbuffer_rdata    = Wire(Vec(8, UInt(8.W)))
   val rdata            = Wire(UInt(64.W))
   val wbuffer_cmp_addr = Wire(UInt(64.W))
 
@@ -80,8 +80,8 @@ class wt_dcache_mem
   val cmp_en_q = RegInit(false.B)
   val rd_acked = Wire(Bool())
   val bank_collision = Wire(Vec(NumPorts, Bool()))
-  val rd_req_masked  = Wire(UInt(NumPorts.W))
-  val rd_req_prio    = Wire(UInt(NumPorts.W))
+  val rd_req_masked  = Wire(Vec(NumPorts, Bool()))
+  val rd_req_prio    = Wire(Vec(NumPorts, Bool()))
 
   ///////////////////////////////////////////////////////
   // arbiter
@@ -114,9 +114,10 @@ class wt_dcache_mem
 
   // priority masking
   // disable low prio requests when any of the high prio reqs is present
-  rd_req_prio   := io.rd_req_i & io.rd_prio_i;
-  rd_req_masked := Mux(rd_req_prio.orR, rd_req_prio, io.rd_req_i)
-
+  for(i <- 0 until NumPorts) {
+    rd_req_prio(i)   := io.rd_req_i(i) & io.rd_prio_i(i)
+    rd_req_masked(i) := Mux(rd_req_prio.asUInt.orR, rd_req_prio(i), io.rd_req_i(i))
+  }
   val rd_req = Wire(Bool())
   val wire_zero = Wire(Vec(NumPorts, UInt(1.W)))
   for (i <- 0 until NumPorts) { wire_zero(i) := 0.U }
@@ -188,7 +189,7 @@ class wt_dcache_mem
   }
 
   for(k <- 0 until DCACHE_WBUF_DEPTH) { // gen_wbuffer_hit
-    wbuffer_hit_oh(k) := ((io.wbuffer_data_i(k).valid).orR) & (io.wbuffer_data_i(k).wtag === (wbuffer_cmp_addr >> 3))
+    wbuffer_hit_oh(k) := (io.wbuffer_data_i(k).valid.asUInt.orR) & (io.wbuffer_data_i(k).wtag === (wbuffer_cmp_addr >> 3))
   }
 
   val i_lzc_wbuffer_hit = Module(new lzc(DCACHE_WBUF_DEPTH))
@@ -202,7 +203,7 @@ class wt_dcache_mem
   // i_lzc_rd_hit.io.empty_o :=
 
   wbuffer_rdata := io.wbuffer_data_i(wbuffer_hit_idx).data
-  wbuffer_be    := Mux(wbuffer_hit_oh.asUInt.orR, io.wbuffer_data_i(wbuffer_hit_idx).valid, 0.U)
+  wbuffer_be    := Mux(wbuffer_hit_oh.asUInt.orR, io.wbuffer_data_i(wbuffer_hit_idx).valid, VecInit(Seq.fill(8)(false.B)))
 
   if (Axi64BitCompliant) { // gen_axi_off
     wr_cl_off := Mux(io.wr_cl_nc_i, 0.U, io.wr_cl_off_i(DCACHE_OFFSET_WIDTH-1,3))
@@ -219,7 +220,7 @@ class wt_dcache_mem
   // overlay bytes that hit in the write buffer
   val rd_data_w = Wire(Vec(8, UInt(8.W)))
   for(k <- 0 until 8) { // gen_rd_data
-    rd_data_w(k) := Mux(wbuffer_be(k), wbuffer_rdata(8*k+7, 8*k), rdata(8*k+7, 8*k))
+    rd_data_w(k) := Mux(wbuffer_be(k), wbuffer_rdata(k), rdata(8*k+7, 8*k))
   }
   io.rd_data_o := rd_data_w.asUInt
 

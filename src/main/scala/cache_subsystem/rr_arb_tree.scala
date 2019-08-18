@@ -65,7 +65,7 @@ class rr_arb_tree[T<:Data](
 
     /* verilator lint_off UNOPTFLAT */
     val index_nodes = WireInit(VecInit(Seq.fill(NumLevel2Pow  )(0.U(NumLevels.W)))) // used to propagate the indices
-    val data_nodes  = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(0.U(dtype.getWidth.W)))) // used to propagate the data
+    val data_nodes  = Wire(Vec(NumLevel2Pow-1, dtype)) // used to propagate the data
     val gnt_nodes   = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(false.B)))          // used to propagate the grant to masters
     val req_nodes   = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(false.B)))          // used to propagate the requests to slave
     /* lint_off */

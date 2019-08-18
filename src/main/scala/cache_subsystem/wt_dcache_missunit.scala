@@ -47,7 +47,7 @@ class wt_dcache_missunit (
     val miss_rtrn_id_o  = Output(UInt(CACHE_ID_WIDTH.W))
     // from writebuffer
     val tx_paddr_i = Input (Vec(DCACHE_MAX_TX, UInt(64.W)))   // used to check for address collisions with read operations
-    val tx_vld_i   = Input (UInt(DCACHE_MAX_TX.W))            // used to check for address collisions with read operations
+    val tx_vld_i   = Input (Vec(DCACHE_MAX_TX, Bool()))       // used to check for address collisions with read operations
                                                               // write interface to cache memory
     val wr_cl_vld_o     = Output(Bool())                      // writes a full cacheline
     val wr_cl_nc_o      = Output(Bool())                      // writes a full cacheline

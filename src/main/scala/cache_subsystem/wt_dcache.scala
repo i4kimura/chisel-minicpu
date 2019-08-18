@@ -83,12 +83,12 @@ class wt_dcache (
   val rd_idx      = Wire(Vec(NumPorts, UInt(DCACHE_CL_IDX_WIDTH.W)))
   val rd_off      = Wire(Vec(NumPorts, UInt(DCACHE_OFFSET_WIDTH.W)))
   val rd_data     = Wire(UInt(64.W))
-  val rd_vld_bits = Wire(UInt(DCACHE_SET_ASSOC.W))
-  val rd_hit_oh   = Wire(UInt(DCACHE_SET_ASSOC.W))
+  val rd_vld_bits = Wire(Vec(DCACHE_SET_ASSOC, Bool()))
+  val rd_hit_oh   = Wire(Vec(DCACHE_SET_ASSOC, Bool()))
 
   // miss unit <-> wbuffer
   val tx_paddr = Wire(Vec(DCACHE_MAX_TX, UInt(64.W)))
-  val tx_vld   = Wire(UInt(DCACHE_MAX_TX.W))
+  val tx_vld   = Wire(Vec(DCACHE_MAX_TX, Bool()))
 
   // wbuffer <-> memory
   val wbuffer_data = Wire(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
@@ -178,8 +178,8 @@ class wt_dcache (
     rd_tag_only(k) := i_wt_dcache_ctrl.io.rd_tag_only_o
     i_wt_dcache_ctrl.io.rd_ack_i        := rd_ack(k)
     i_wt_dcache_ctrl.io.rd_data_i       := rd_data
-    i_wt_dcache_ctrl.io.rd_vld_bits_i   := rd_vld_bits
-    i_wt_dcache_ctrl.io.rd_hit_oh_i     := rd_hit_oh
+    i_wt_dcache_ctrl.io.rd_vld_bits_i   := rd_vld_bits.asUInt
+    i_wt_dcache_ctrl.io.rd_hit_oh_i     := rd_hit_oh.asUInt
   }
   ///////////////////////////////////////////////////////
   // store unit controller
@@ -189,7 +189,7 @@ class wt_dcache (
   rd_prio(2) := false.B
 
   val i_wt_dcache_wbuffer = Module(new wt_dcache_wbuffer (ArianeCfg))
-  i_wt_dcache_wbuffer.io.empty_o         := io.wbuffer_empty_o
+  io.wbuffer_empty_o := i_wt_dcache_wbuffer.io.empty_o
   // TODO: fix this
   i_wt_dcache_wbuffer.io.cache_en_i      := cache_en
   // .cache_en_i      := '0
@@ -216,8 +216,8 @@ class wt_dcache (
   rd_tag_only(2) := i_wt_dcache_wbuffer.io.rd_tag_only_o
   i_wt_dcache_wbuffer.io.rd_ack_i        := rd_ack(2)
   i_wt_dcache_wbuffer.io.rd_data_i       := rd_data
-  i_wt_dcache_wbuffer.io.rd_vld_bits_i   := rd_vld_bits
-  i_wt_dcache_wbuffer.io.rd_hit_oh_i     := rd_hit_oh
+  i_wt_dcache_wbuffer.io.rd_vld_bits_i   := rd_vld_bits.asUInt
+  i_wt_dcache_wbuffer.io.rd_hit_oh_i     := rd_hit_oh.asUInt
      // incoming invalidations/cache refills
   i_wt_dcache_wbuffer.io.wr_cl_vld_i     := wr_cl_vld
   i_wt_dcache_wbuffer.io.wr_cl_idx_i     := wr_cl_idx
@@ -228,7 +228,7 @@ class wt_dcache (
   wr_off     := i_wt_dcache_wbuffer.io.wr_off_o
   wr_data    := i_wt_dcache_wbuffer.io.wr_data_o
   wr_data_be := i_wt_dcache_wbuffer.io.wr_data_be_o
-    // write buffer forwarding
+  // write buffer forwarding
   wbuffer_data := i_wt_dcache_wbuffer.io.wbuffer_data_o
   tx_paddr     := i_wt_dcache_wbuffer.io.tx_paddr_o
   tx_vld       := i_wt_dcache_wbuffer.io.tx_vld_o
@@ -245,10 +245,10 @@ class wt_dcache (
   i_wt_dcache_mem.io.rd_off_i          := rd_off
   i_wt_dcache_mem.io.rd_req_i          := rd_req
   i_wt_dcache_mem.io.rd_tag_only_i     := rd_tag_only
-  wbuffer_data := i_wt_dcache_mem.io.rd_ack_o
-  tx_paddr     := i_wt_dcache_mem.io.rd_vld_bits_o
-  tx_vld       := i_wt_dcache_mem.io.rd_hit_oh_o
-  // i_wt_dcache_mem.io.rd_data_o         :=
+  rd_ack      := i_wt_dcache_mem.io.rd_ack_o
+  rd_vld_bits := i_wt_dcache_mem.io.rd_vld_bits_o
+  rd_hit_oh   := i_wt_dcache_mem.io.rd_hit_oh_o
+  rd_data     := i_wt_dcache_mem.io.rd_data_o
   // cacheline write port
   i_wt_dcache_mem.io.wr_cl_vld_i       := wr_cl_vld
   i_wt_dcache_mem.io.wr_cl_nc_i        := wr_cl_nc

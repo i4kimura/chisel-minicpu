@@ -199,7 +199,7 @@ class wt_dcache_wbuffer (
   io.miss_size_o  := toSize64(bdirty(dirty_ptr))
 
   // replicate transfers shorter than a dword
-  io.miss_wdata_o := repData64(wbuffer_dirty_mux.data,
+  io.miss_wdata_o := repData64(wbuffer_dirty_mux.data.asUInt,
                                bdirty_off,
                                io.miss_size_o(1, 0))
   tx_be := toByteEnable8(bdirty_off, io.miss_size_o(1, 0))
@@ -281,11 +281,11 @@ class wt_dcache_wbuffer (
   rtrn_ptr       := tx_stat_q(rtrn_id).ptr
   // if we wrote into a word while it was in-flight, we cannot write the dirty bytes to the cache
   // when the TX returns
-  io.wr_data_be_o := tx_stat_q(rtrn_id).be & (~wbuffer_q(rtrn_ptr).dirty)
+  io.wr_data_be_o := tx_stat_q(rtrn_id).be & (~wbuffer_q(rtrn_ptr).dirty.asUInt)
   wr_paddr        := wbuffer_q(rtrn_ptr).wtag << 3
   io.wr_idx_o     := wr_paddr(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH)
   io.wr_off_o     := wr_paddr(DCACHE_OFFSET_WIDTH-1, 0)
-  io.wr_data_o    := wbuffer_q(rtrn_ptr).data
+  io.wr_data_o    := wbuffer_q(rtrn_ptr).data.asUInt
 
 
   ///////////////////////////////////////////////////////
@@ -304,10 +304,10 @@ class wt_dcache_wbuffer (
     // dirty bytes that are ready for transmission.
     // note that we cannot retransmit a word that is already in-flight
     // since the multiple transactions might overtake each other in the memory system!
-    bdirty(k) := Mux(wbuffer_q(k).txblock.orR, 0.U, wbuffer_q(k).dirty & wbuffer_q(k).valid)
+    bdirty(k) := Mux(wbuffer_q(k).txblock.asUInt.orR, 0.U, wbuffer_q(k).dirty.asUInt & wbuffer_q(k).valid.asUInt)
 
     dirty(k)          := bdirty(k).orR
-    valid(k)          := wbuffer_q(k).valid.orR
+    valid(k)          := wbuffer_q(k).valid.asUInt.orR
     wbuffer_hit_oh(k) := valid(k) & (wbuffer_q(k).wtag === Cat(io.req_port_i.address_tag, io.req_port_i.address_index(DCACHE_INDEX_WIDTH-1, 3)))
 
     // checks if an invalidation/cache refill hits a particular word
@@ -341,7 +341,7 @@ class wt_dcache_wbuffer (
   val i_dirty_rr = Module(new rr_arb_tree(new wbuffer_t, DCACHE_WBUF_DEPTH, false, false, true))
   i_dirty_rr.io.flush_i := 0.U
   i_dirty_rr.io.rr_i    := 0.U
-  i_dirty_rr.io.req_i   := dirty
+  i_dirty_rr.io.req_i   := dirty.asUInt
   // i_dirty_rr.io.gnt_o   :=
   i_dirty_rr.io.data_i  := wbuffer_q
   i_dirty_rr.io.gnt_i   := dirty_rd_en
@@ -353,7 +353,7 @@ class wt_dcache_wbuffer (
   val i_clean_rr = Module(new rr_arb_tree(new wbuffer_t, DCACHE_WBUF_DEPTH, false, false, false))
   i_clean_rr.io.flush_i:= 0.U
   i_clean_rr.io.rr_i   := 0.U
-  i_clean_rr.io.req_i  := tocheck
+  i_clean_rr.io.req_i  := tocheck.asUInt
   // i_clean_rr.io.gnt_o  :=
   i_clean_rr.io.data_i := wbuffer_q
   i_clean_rr.io.gnt_i  := check_en_d
@@ -379,7 +379,7 @@ class wt_dcache_wbuffer (
 
   // TAG lookup returns, mark corresponding word
   when (check_en_q1) {
-    when (wbuffer_q(check_ptr_q1).valid.orR) {
+    when (wbuffer_q(check_ptr_q1).valid.asUInt.orR) {
       wbuffer_d(check_ptr_q1).checked := true.B
       wbuffer_d(check_ptr_q1).hit_oh := rd_hit_oh_q
     }
@@ -409,7 +409,7 @@ class wt_dcache_wbuffer (
       }
     }
     // if all bytes are evicted, clear the cache status flag
-    when (wbuffer_d(rtrn_ptr).valid === 0.U) {
+    when (wbuffer_d(rtrn_ptr).valid.asUInt === 0.U) {
       wbuffer_d(rtrn_ptr).checked := false.B
     }
   }
@@ -441,9 +441,9 @@ class wt_dcache_wbuffer (
       // mark bytes as dirty
       for (k <- 0 until 8) {
         when (io.req_port_i.data_be(k)) {
-          wbuffer_d(wr_ptr).valid(k)       := true.B
-          wbuffer_d(wr_ptr).dirty(k)       := true.B
-          wbuffer_d(wr_ptr).data(k*8+7,k*8) := io.req_port_i.data_wdata(k*8+7,k*8)
+          wbuffer_d(wr_ptr).valid(k) := true.B
+          wbuffer_d(wr_ptr).dirty(k) := true.B
+          wbuffer_d(wr_ptr).data(k)  := io.req_port_i.data_wdata(k*8+7,k*8)
         }
       }
     }
