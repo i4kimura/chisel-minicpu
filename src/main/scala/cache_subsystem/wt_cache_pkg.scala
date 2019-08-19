@@ -94,7 +94,7 @@ object wt_cache_pkg
   val DCACHE_INT_REQ    = 3.U(2.W)
 
   val dcache_inv_req_s /* no ack from the core required */ :: dcache_store_ack_s /* note: this may contain an invalidation vector, too */ :: dcache_load_ack_s :: dcache_atomic_ack_s :: dcache_int_ack_s :: Nil = Enum(5)  // dcache_in_t
-  val icache_inv_req_s /* no ack from the core required */ :: icache_ifill_ack :: Nil = Enum(2)  // icache_in_t
+  val icache_inv_req_s /* no ack from the core required */ :: icache_ifill_ack_s :: Nil = Enum(2)  // icache_in_t
 
   class cache_inval_t extends Bundle {
     val vld = Bool()                                 // invalidate only affected way
