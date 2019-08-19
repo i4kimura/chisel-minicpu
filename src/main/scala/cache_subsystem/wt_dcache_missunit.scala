@@ -37,16 +37,11 @@ class wt_dcache_missunit (
     // from writebuffer
     val tx_paddr_i = Input (Vec(DCACHE_MAX_TX, UInt(64.W)))   // used to check for address collisions with read operations
     val tx_vld_i   = Input (Vec(DCACHE_MAX_TX, Bool()))       // used to check for address collisions with read operations
-                                                              // write interface to cache memory
-    val wr_cl_vld_o     = Output(Bool())                      // writes a full cacheline
-    val wr_cl_nc_o      = Output(Bool())                      // writes a full cacheline
-    val wr_cl_we_o      = Output(UInt(DCACHE_SET_ASSOC.W   )) // writes a full cacheline
-    val wr_cl_tag_o     = Output(UInt(DCACHE_TAG_WIDTH.W   ))
-    val wr_cl_idx_o     = Output(UInt(DCACHE_CL_IDX_WIDTH.W))
-    val wr_cl_off_o     = Output(UInt(DCACHE_OFFSET_WIDTH.W))
-    val wr_cl_data_o    = Output(UInt(DCACHE_LINE_WIDTH.W  ))
-    val wr_cl_data_be_o = Output(UInt((DCACHE_LINE_WIDTH/8).W))
+
+    // write interface to cache memory
+    val wr_cl_if = new dcache_write_if()
     val wr_vld_bits_o   = Output(UInt(DCACHE_SET_ASSOC.W   ))
+
     // memory interface
     val mem_rtrn_vld_i = Input (Bool())
     val mem_rtrn_i     = Input (new dcache_rtrn_t())
@@ -318,26 +313,26 @@ class wt_dcache_missunit (
 ///////////////////////////////////////////////////////
 
   // cacheline write port
-  io.wr_cl_nc_o      := mshr_q.nc
-  io.wr_cl_vld_o     := load_ack | (io.wr_cl_we_o.orR)
+  io.wr_cl_if.nc      := mshr_q.nc
+  io.wr_cl_if.vld     := load_ack | (io.wr_cl_if.we.orR)
 
-  io.wr_cl_we_o      := Mux(flush_en      , true.B,
+  io.wr_cl_if.we     := Mux(flush_en      , true.B,
                         Mux(inv_vld_all   , true.B,
                         Mux(inv_vld       , dcache_way_bin2oh(io.mem_rtrn_i.inv.way),
                         Mux(cl_write_en   , dcache_way_bin2oh(mshr_q.repl_way) , false.B))))
 
+  io.wr_cl_if.idx     := Mux(flush_en, cnt_q,
+                         Mux(inv_vld,  io.mem_rtrn_i.inv.idx(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH),
+                                      mshr_q.paddr(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH)))
+
+  io.wr_cl_if.tag     := mshr_q.paddr(DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1, DCACHE_INDEX_WIDTH)
+  io.wr_cl_if.off     := mshr_q.paddr(DCACHE_OFFSET_WIDTH-1, 0)
+  io.wr_cl_if.data    := io.mem_rtrn_i.data
+  io.wr_cl_if.data_be := Mux(cl_write_en, true.B, false.B)   // we only write complete cachelines into the memory
+
   io.wr_vld_bits_o   := Mux(flush_en   , 0.U,
                         Mux(inv_vld    , 0.U,
                         Mux(cl_write_en, dcache_way_bin2oh(mshr_q.repl_way), 0.U)))
-
-  io.wr_cl_idx_o     := Mux(flush_en, cnt_q,
-                        Mux(inv_vld,  io.mem_rtrn_i.inv.idx(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH),
-                                      mshr_q.paddr(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH)))
-
-  io.wr_cl_tag_o     := mshr_q.paddr(DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1, DCACHE_INDEX_WIDTH)
-  io.wr_cl_off_o     := mshr_q.paddr(DCACHE_OFFSET_WIDTH-1, 0)
-  io.wr_cl_data_o    := io.mem_rtrn_i.data
-  io.wr_cl_data_be_o := Mux(cl_write_en, true.B, false.B)   // we only write complete cachelines into the memory
 
   // only NC responses write to the cache
   cl_write_en     := load_ack & ~mshr_q.nc

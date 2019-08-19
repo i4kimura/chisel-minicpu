@@ -365,4 +365,16 @@ object wt_cache_pkg
     val rtrn_vld = Input (Bool())    // signals response from memory
   }
 
+  // DCache Write Signal Interface
+  class dcache_write_if extends Bundle {
+    val vld     = Output(Bool())
+    val nc      = Output(Bool())                                   // noncacheable access
+    val we      = Output(UInt(DCACHE_SET_ASSOC.W     ))            // writes a full cacheline
+    val tag     = Output(UInt(DCACHE_TAG_WIDTH.W     ))
+    val idx     = Output(UInt(DCACHE_CL_IDX_WIDTH.W  ))
+    val off     = Output(UInt(DCACHE_OFFSET_WIDTH.W  ))
+    val data    = Output(UInt(DCACHE_LINE_WIDTH.W    ))
+    val data_be = Output(UInt((DCACHE_LINE_WIDTH/8).W))
+  }
+
 }

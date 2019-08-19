@@ -20,14 +20,7 @@ class wt_dcache_mem
     val rd_data_o     = Output(UInt(64.W))
 
     // only available on port 0, uses address signals of port 0
-    val wr_cl_vld_i     = Input(Bool())
-    val wr_cl_nc_i      = Input(Bool())                                   // noncacheable access
-    val wr_cl_we_i      = Input(UInt(DCACHE_SET_ASSOC.W     ))            // writes a full cacheline
-    val wr_cl_tag_i     = Input(UInt(DCACHE_TAG_WIDTH.W     ))
-    val wr_cl_idx_i     = Input(UInt(DCACHE_CL_IDX_WIDTH.W  ))
-    val wr_cl_off_i     = Input(UInt(DCACHE_OFFSET_WIDTH.W  ))
-    val wr_cl_data_i    = Input(UInt(DCACHE_LINE_WIDTH.W    ))
-    val wr_cl_data_be_i = Input(UInt((DCACHE_LINE_WIDTH/8).W))
+    val wr_cl_if = Flipped(new dcache_write_if())
     val wr_vld_bits_i   = Input(UInt(DCACHE_SET_ASSOC.W     ))
 
     // separate port for single word write, no tag access
@@ -92,20 +85,20 @@ class wt_dcache_mem
   // byte enable mapping
   for (k <- 0 until DCACHE_NUM_BANKS) {
     for (j <- 0 until DCACHE_SET_ASSOC) {
-      bank_be(k)(j) := Mux(io.wr_cl_we_i(j) & io.wr_cl_vld_i, io.wr_cl_data_be_i(k*8+7, k*8),
-                       Mux(io.wr_req_i  (j) & io.wr_ack_o,    io.wr_data_be_i, 0.U))
-
-      bank_wdata(k)(j) := Mux(io.wr_cl_we_i(j) & io.wr_cl_vld_i, io.wr_cl_data_i(k*64+63, k*64),
+      bank_be(k)(j) := Mux(io.wr_cl_if.we(j) & io.wr_cl_if.vld, io.wr_cl_if.data_be(k*8+7, k*8),
+                       Mux(io.wr_req_i   (j) & io.wr_ack_o,     io.wr_data_be_i,
+                           0.U))
+      bank_wdata(k)(j) := Mux(io.wr_cl_if.we(j) & io.wr_cl_if.vld, io.wr_cl_if.data(k*64+63, k*64),
                               io.wr_data_i)
     }
   }
 
   vld_wdata  := io.wr_vld_bits_i;
-  vld_addr   := Mux(io.wr_cl_vld_i, io.wr_cl_idx_i, io.rd_if(vld_sel_d).rd_idx)
+  vld_addr   := Mux(io.wr_cl_if.vld, io.wr_cl_if.idx, io.rd_if(vld_sel_d).rd_idx)
   rd_tag     := io.rd_if(vld_sel_q).rd_tag                               // delayed by one cycle
-  bank_off_d := Mux(io.wr_cl_vld_i, io.wr_cl_off_i, io.rd_if(vld_sel_d).rd_off)
-  bank_idx_d := Mux(io.wr_cl_vld_i, io.wr_cl_idx_i, io.rd_if(vld_sel_d).rd_idx)
-  vld_req    := Mux(io.wr_cl_vld_i, io.wr_cl_we_i , Mux(rd_acked, true.B, false.B))
+  bank_off_d := Mux(io.wr_cl_if.vld, io.wr_cl_if.off, io.rd_if(vld_sel_d).rd_off)
+  bank_idx_d := Mux(io.wr_cl_if.vld, io.wr_cl_if.idx, io.rd_if(vld_sel_d).rd_idx)
+  vld_req    := Mux(io.wr_cl_if.vld, io.wr_cl_if.we , Mux(rd_acked, true.B, false.B))
 
   // priority masking
   // disable low prio requests when any of the high prio reqs is present
@@ -122,15 +115,15 @@ class wt_dcache_mem
   i_rr_arb_tree.io.rr_i    := VecInit(Seq.fill(log2Ceil(NumPorts))(false.B))
   i_rr_arb_tree.io.req_i   := rd_req_masked
   i_rr_arb_tree.io.data_i  := VecInit(Seq.fill(NumPorts)(0.U(1.W)))
-  i_rr_arb_tree.io.gnt_i   := ~io.wr_cl_vld_i
+  i_rr_arb_tree.io.gnt_i   := ~io.wr_cl_if.vld
   rd_req    := i_rr_arb_tree.io.req_o
   vld_sel_d := i_rr_arb_tree.io.idx_o
 
-  rd_acked  := rd_req & ~io.wr_cl_vld_i;
+  rd_acked  := rd_req & ~io.wr_cl_if.vld;
 
 
 
-  vld_we      := io.wr_cl_vld_i
+  vld_we      := io.wr_cl_if.vld
   bank_req    := 0.U
   io.wr_ack_o := 0.U
   bank_we     := 0.U
@@ -142,10 +135,10 @@ class wt_dcache_mem
     bank_collision(i) := (io.rd_if(i).rd_off(DCACHE_OFFSET_WIDTH-1,3) === io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3))
   }
 
-  when (io.wr_cl_vld_i && io.wr_cl_we_i.orR) {
+  when (io.wr_cl_if.vld && io.wr_cl_if.we.orR) {
     bank_req := 1.U
     bank_we  := 1.U
-    for(i <- 0 until DCACHE_NUM_BANKS) { bank_idx(i) := io.wr_cl_idx_i }
+    for(i <- 0 until DCACHE_NUM_BANKS) { bank_idx(i) := io.wr_cl_if.idx }
   } .otherwise {
     when (rd_acked) {
       when(!io.rd_if(vld_sel_d).rd_tag_only) {
@@ -174,7 +167,7 @@ class wt_dcache_mem
   cmp_en_d := vld_req.orR & ~vld_we
 
   // word tag comparison in write buffer
-  wbuffer_cmp_addr := Mux(io.wr_cl_vld_i, Cat(io.wr_cl_tag_i, io.wr_cl_idx_i, io.wr_cl_off_i),
+  wbuffer_cmp_addr := Mux(io.wr_cl_if.vld, Cat(io.wr_cl_if.tag, io.wr_cl_if.idx, io.wr_cl_if.off),
                                           Cat(rd_tag, bank_idx_q, bank_off_q))
   // hit generation
   for (i <- 0 until DCACHE_SET_ASSOC) { // gen_tag_cmpsel
@@ -202,16 +195,16 @@ class wt_dcache_mem
   wbuffer_be    := Mux(wbuffer_hit_oh.asUInt.orR, io.wbuffer_data_i(wbuffer_hit_idx).valid, VecInit(Seq.fill(8)(false.B)))
 
   if (Axi64BitCompliant) { // gen_axi_off
-    wr_cl_off := Mux(io.wr_cl_nc_i, 0.U, io.wr_cl_off_i(DCACHE_OFFSET_WIDTH-1,3))
+    wr_cl_off := Mux(io.wr_cl_if.nc, 0.U, io.wr_cl_if.off(DCACHE_OFFSET_WIDTH-1,3))
   } else { // : gen_piton_off
-    wr_cl_off := io.wr_cl_off_i(DCACHE_OFFSET_WIDTH-1,3)
+    wr_cl_off := io.wr_cl_if.off(DCACHE_OFFSET_WIDTH-1,3)
   }
 
   val wr_cl_data_w = Wire(Vec(DCACHE_LINE_WIDTH / 64, UInt(64.W)))
   for (i <- 0 until DCACHE_LINE_WIDTH / 64) {
-    wr_cl_data_w(i) := io.wr_cl_data_i(i * 64 + 63, i * 64)
+    wr_cl_data_w(i) := io.wr_cl_if.data(i * 64 + 63, i * 64)
   }
-  rdata := Mux(io.wr_cl_vld_i, wr_cl_data_w(wr_cl_off), rdata_cl(rd_hit_idx))
+  rdata := Mux(io.wr_cl_if.vld, wr_cl_data_w(wr_cl_off), rdata_cl(rd_hit_idx))
 
   // overlay bytes that hit in the write buffer
   val rd_data_w = Wire(Vec(8, UInt(8.W)))
@@ -249,7 +242,7 @@ class wt_dcache_mem
     i_tag_sram.io.req_i   :=  vld_req(i)
     i_tag_sram.io.we_i    :=  vld_we
     i_tag_sram.io.addr_i  :=  vld_addr
-    i_tag_sram.io.wdata_i :=  Cat(vld_wdata(i), io.wr_cl_tag_i)
+    i_tag_sram.io.wdata_i :=  Cat(vld_wdata(i), io.wr_cl_if.tag)
     i_tag_sram.io.be_i    :=  true.B
     vld_tag_rdata(i) := i_tag_sram.io.rdata_o
   }
