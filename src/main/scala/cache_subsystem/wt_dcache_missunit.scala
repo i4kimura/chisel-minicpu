@@ -37,7 +37,7 @@ class wt_dcache_missunit (
     val miss_we_i       = Input (Vec(NumPorts, Bool()))
     val miss_wdata_i    = Input (Vec(NumPorts, UInt(64.W)))
     val miss_paddr_i    = Input (Vec(NumPorts, UInt(64.W)))
-    val miss_vld_bits_i = Input (Vec(NumPorts, UInt(DCACHE_SET_ASSOC.W)))
+    val miss_vld_bits_i = Input (Vec(NumPorts, Vec(DCACHE_SET_ASSOC, Bool())))
     val miss_size_i     = Input (Vec(NumPorts, UInt(3.W)))
     val miss_id_i       = Input (Vec(NumPorts, UInt(CACHE_ID_WIDTH.W)))
     // signals that the request collided with a pending read
@@ -75,7 +75,7 @@ class wt_dcache_missunit (
   class mshr_t extends Bundle {
     val paddr          = UInt(64.W)
     val size           = UInt(3.W)
-    val vld_bits       = UInt(DCACHE_SET_ASSOC.W)
+    val vld_bits       = Vec(DCACHE_SET_ASSOC, Bool())
     val id             = UInt(CACHE_ID_WIDTH.W)
     val nc             = Bool()
     val repl_way       = UInt(log2Ceil(DCACHE_SET_ASSOC).W)
@@ -160,9 +160,9 @@ class wt_dcache_missunit (
 
   // find invalid cache line
   val i_lzc_inv = Module(new lzc(DCACHE_SET_ASSOC))
-  i_lzc_inv.io.in_i    := (~io.miss_vld_bits_i(miss_port_idx)).toBools
-  inv_way        := i_lzc_inv.io.cnt_o
-  all_ways_valid := i_lzc_inv.io.empty_o
+  i_lzc_inv.io.in_i := io.miss_vld_bits_i(miss_port_idx).map(x => ~x)
+  inv_way           := i_lzc_inv.io.cnt_o
+  all_ways_valid    := i_lzc_inv.io.empty_o
 
 
   // generate random cacheline index

@@ -53,7 +53,7 @@ class wt_dcache (
   val wr_cl_data    = Wire(UInt(DCACHE_LINE_WIDTH.W))
   val wr_cl_data_be = Wire(UInt((DCACHE_LINE_WIDTH/8).W))
   val wr_vld_bits   = Wire(UInt(DCACHE_SET_ASSOC.W))
-  val wr_req        = Wire(UInt(DCACHE_SET_ASSOC.W))
+  val wr_req        = Wire(Vec(DCACHE_SET_ASSOC, Bool()))
   val wr_ack        = Wire(Bool())
   val wr_idx        = Wire(UInt(DCACHE_CL_IDX_WIDTH.W))
   val wr_off        = Wire(UInt(DCACHE_OFFSET_WIDTH.W))
@@ -67,7 +67,7 @@ class wt_dcache (
   val miss_we       = Wire(Vec(NumPorts, Bool()))
   val miss_wdata    = Wire(Vec(NumPorts, UInt(64.W)))
   val miss_paddr    = Wire(Vec(NumPorts, UInt(64.W)))
-  val miss_vld_bits = Wire(Vec(NumPorts, UInt(DCACHE_SET_ASSOC.W)))
+  val miss_vld_bits = Wire(Vec(NumPorts, Vec(DCACHE_SET_ASSOC, Bool())))
   val miss_size     = Wire(Vec(NumPorts, UInt(3.W)))
   val miss_id       = Wire(Vec(NumPorts, UInt(CACHE_ID_WIDTH.W)))
   val miss_replay   = Wire(Vec(NumPorts, Bool()))
@@ -178,8 +178,8 @@ class wt_dcache (
     rd_tag_only(k) := i_wt_dcache_ctrl.io.rd_tag_only_o
     i_wt_dcache_ctrl.io.rd_ack_i        := rd_ack(k)
     i_wt_dcache_ctrl.io.rd_data_i       := rd_data
-    i_wt_dcache_ctrl.io.rd_vld_bits_i   := rd_vld_bits.asUInt
-    i_wt_dcache_ctrl.io.rd_hit_oh_i     := rd_hit_oh.asUInt
+    i_wt_dcache_ctrl.io.rd_vld_bits_i   := rd_vld_bits
+    i_wt_dcache_ctrl.io.rd_hit_oh_i     := rd_hit_oh
   }
   ///////////////////////////////////////////////////////
   // store unit controller
@@ -216,8 +216,8 @@ class wt_dcache (
   rd_tag_only(2) := i_wt_dcache_wbuffer.io.rd_tag_only_o
   i_wt_dcache_wbuffer.io.rd_ack_i        := rd_ack(2)
   i_wt_dcache_wbuffer.io.rd_data_i       := rd_data
-  i_wt_dcache_wbuffer.io.rd_vld_bits_i   := rd_vld_bits.asUInt
-  i_wt_dcache_wbuffer.io.rd_hit_oh_i     := rd_hit_oh.asUInt
+  i_wt_dcache_wbuffer.io.rd_vld_bits_i   := rd_vld_bits
+  i_wt_dcache_wbuffer.io.rd_hit_oh_i     := rd_hit_oh
      // incoming invalidations/cache refills
   i_wt_dcache_wbuffer.io.wr_cl_vld_i     := wr_cl_vld
   i_wt_dcache_wbuffer.io.wr_cl_idx_i     := wr_cl_idx

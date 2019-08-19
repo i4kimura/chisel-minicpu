@@ -70,11 +70,11 @@ object wt_cache_pkg
   class wbuffer_t extends Bundle {
     val wtag    = UInt((DCACHE_INDEX_WIDTH+DCACHE_TAG_WIDTH).W)
     val data    = Vec(8, UInt(8.W))
-    val dirty   = Vec(8, Bool())           // byte is dirty
-    val valid   = Vec(8, Bool())           // byte is valid
-    val txblock = Vec(8, Bool())           // byte is part of transaction in-flight
-    val checked = Bool()                   // if cache state of this word has been checked
-    val hit_oh  = UInt(DCACHE_SET_ASSOC.W) // valid way in the cache
+    val dirty   = Vec(8, Bool())                // byte is dirty
+    val valid   = Vec(8, Bool())                // byte is valid
+    val txblock = Vec(8, Bool())                // byte is part of transaction in-flight
+    val checked = Bool()                        // if cache state of this word has been checked
+    val hit_oh  = Vec(DCACHE_SET_ASSOC, Bool()) // valid way in the cache
   }
 
   // TX status registers are indexed with the transaction ID

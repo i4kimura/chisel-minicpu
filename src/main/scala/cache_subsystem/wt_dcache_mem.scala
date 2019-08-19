@@ -36,7 +36,7 @@ class wt_dcache_mem
     val wr_vld_bits_i   = Input(UInt(DCACHE_SET_ASSOC.W     ))
 
     // separate port for single word write, no tag access
-    val wr_req_i     = Input (UInt(DCACHE_SET_ASSOC.W))            // write a single word to offset off_i[:3]
+    val wr_req_i     = Input (Vec(DCACHE_SET_ASSOC, Bool()))            // write a single word to offset off_i[:3]
     val wr_ack_o     = Output(Bool())
     val wr_idx_i     = Input (UInt(DCACHE_CL_IDX_WIDTH.W))
     val wr_off_i     = Input (UInt(DCACHE_OFFSET_WIDTH.W))
@@ -98,7 +98,7 @@ class wt_dcache_mem
   for (k <- 0 until DCACHE_NUM_BANKS) {
     for (j <- 0 until DCACHE_SET_ASSOC) {
       bank_be(k)(j) := Mux(io.wr_cl_we_i(j) & io.wr_cl_vld_i, io.wr_cl_data_be_i(k*8+7, k*8),
-                          Mux(io.wr_req_i  (j) & io.wr_ack_o,    io.wr_data_be_i, 0.U))
+                       Mux(io.wr_req_i  (j) & io.wr_ack_o,    io.wr_data_be_i, 0.U))
 
       bank_wdata(k)(j) := Mux(io.wr_cl_we_i(j) & io.wr_cl_vld_i, io.wr_cl_data_i(k*64+63, k*64),
                               io.wr_data_i)
@@ -124,7 +124,7 @@ class wt_dcache_mem
   val i_rr_arb_tree = Module(new rr_arb_tree(UInt(1.W), NumPorts, false, false, false))
   i_rr_arb_tree.io.flush_i := false.B
   i_rr_arb_tree.io.rr_i    := VecInit(Seq.fill(log2Ceil(NumPorts))(false.B))
-  i_rr_arb_tree.io.req_i   := rd_req_masked.asUInt
+  i_rr_arb_tree.io.req_i   := rd_req_masked
   io.rd_ack_o := i_rr_arb_tree.io.gnt_o
   i_rr_arb_tree.io.data_i  := wire_zero
   i_rr_arb_tree.io.gnt_i   := ~io.wr_cl_vld_i
@@ -157,7 +157,7 @@ class wt_dcache_mem
         bank_idx(io.rd_off_i(vld_sel_d)(DCACHE_OFFSET_WIDTH-1, 3)) := io.rd_idx_i(vld_sel_d)
       }
     }
-    when (io.wr_req_i.orR) {
+    when (io.wr_req_i.asUInt.orR) {
       when (io.rd_tag_only_i(vld_sel_d) || !(io.rd_ack_o(vld_sel_d) && bank_collision(vld_sel_d))) {
         io.wr_ack_o := true.B
         // bank_req |= dcache_cl_bin2oh(io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3));

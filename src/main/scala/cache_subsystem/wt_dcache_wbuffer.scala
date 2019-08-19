@@ -62,7 +62,7 @@ class wt_dcache_wbuffer (
     val miss_req_o      = Output(Bool())
     val miss_we_o       = Output(Bool())                    // always 1 here
     val miss_wdata_o    = Output(UInt(64.W))
-    val miss_vld_bits_o = Output(UInt(DCACHE_SET_ASSOC.W))  // unused here (set to 0)
+    val miss_vld_bits_o = Output(Vec(DCACHE_SET_ASSOC, Bool()))  // unused here (set to 0)
     val miss_nc_o       = Output(Bool())                    // request to I/O space
     val miss_size_o     = Output(UInt(3.W))                 //
     val miss_id_o       = Output(UInt(CACHE_ID_WIDTH.W))    // ID of this transaction (wbuffer uses all IDs from 0 to DCACHE_MAX_TX-1)
@@ -77,13 +77,13 @@ class wt_dcache_wbuffer (
     val rd_tag_only_o = Output(Bool())                      // set to 1 here as we do not have to read the data arrays
     val rd_ack_i      = Input(Bool())
     val rd_data_i     = Input(UInt(64.W))                   // unused
-    val rd_vld_bits_i = Input(UInt(DCACHE_SET_ASSOC.W))     // unused
-    val rd_hit_oh_i   = Input(UInt(DCACHE_SET_ASSOC.W))
+    val rd_vld_bits_i = Input(Vec(DCACHE_SET_ASSOC, Bool()))     // unused
+    val rd_hit_oh_i   = Input(Vec(DCACHE_SET_ASSOC, Bool()))
     // cacheline writes
     val wr_cl_vld_i = Input(Bool())
     val wr_cl_idx_i = Input(UInt(DCACHE_CL_IDX_WIDTH.W))
     // cache word write interface
-    val wr_req_o     = Output(UInt(DCACHE_SET_ASSOC.W))
+    val wr_req_o     = Output(Vec(DCACHE_SET_ASSOC, Bool()))
     val wr_ack_i     = Input(Bool())
     val wr_idx_o     = Output(UInt(DCACHE_CL_IDX_WIDTH.W))
     val wr_off_o     = Output(UInt(DCACHE_OFFSET_WIDTH.W))
@@ -123,8 +123,8 @@ class wt_dcache_wbuffer (
   val rd_paddr   = Wire(UInt(64.W))
   val rd_tag_d = Wire(UInt(DCACHE_TAG_WIDTH.W))
   val rd_tag_q = RegInit(0.U(DCACHE_TAG_WIDTH.W))
-  val rd_hit_oh_d = Wire(UInt(DCACHE_SET_ASSOC.W))
-  val rd_hit_oh_q = RegInit(0.U(DCACHE_SET_ASSOC.W))
+  val rd_hit_oh_d = Wire(Vec(DCACHE_SET_ASSOC, Bool()))
+  val rd_hit_oh_q = RegInit(VecInit(Seq.fill(DCACHE_SET_ASSOC)(false.B)))
   val check_en_d    = Wire(Bool())
   val check_en_q    = RegInit(false.B)
   val check_en_q1   = RegInit(false.B)
@@ -160,7 +160,7 @@ class wt_dcache_wbuffer (
                 (~is_inside_cacheable_regions(ArianeCfg, Cat(io.req_port_i.address_tag, VecInit(Seq.fill(DCACHE_INDEX_WIDTH)(false.B)).asUInt)))
 
   io.miss_we_o       := true.B
-  io.miss_vld_bits_o := 0.U
+  io.miss_vld_bits_o := VecInit(Seq.fill(DCACHE_SET_ASSOC)(false.B))
   io.wbuffer_data_o  := wbuffer_q
 
   for (k <- 0 until DCACHE_MAX_TX) { // begin : gen_tx_vld
@@ -222,13 +222,13 @@ class wt_dcache_wbuffer (
 
   for (i <- 0 until DCACHE_MAX_TX) { tx_stat_d(i) := tx_stat_q(i) }
   evict       := false.B
-  io.wr_req_o := 0.U
+  io.wr_req_o := VecInit(Seq.fill(DCACHE_SET_ASSOC)(false.B))
 
   // clear entry if it is clear whether it can be pushed to the cache or not
   when ((!rtrn_empty) && wbuffer_q(rtrn_ptr).checked) {
     // check if data is clean and can be written, otherwise skip
     // check if CL is present, otherwise skip
-    when ((io.wr_data_be_o.orR) && (wbuffer_q(rtrn_ptr).hit_oh.orR)) {
+    when ((io.wr_data_be_o.orR) && (wbuffer_q(rtrn_ptr).hit_oh.asUInt.orR)) {
       io.wr_req_o := wbuffer_q(rtrn_ptr).hit_oh
       when (io.wr_ack_i) {
         evict    := true.B
@@ -253,7 +253,7 @@ class wt_dcache_wbuffer (
   val i_tx_id_rr = Module(new rr_arb_tree(UInt(1.W), DCACHE_MAX_TX, false, false, true))
   i_tx_id_rr.io.flush_i := false.B
   i_tx_id_rr.io.rr_i    := VecInit(Seq.fill(log2Ceil(DCACHE_MAX_TX))(false.B))
-  i_tx_id_rr.io.req_i   := ~(io.tx_vld_o.asUInt)
+  i_tx_id_rr.io.req_i   := io.tx_vld_o.map(x => ~x)
   // i_tx_id_rr.io.gnt_o   :=
   i_tx_id_rr.io.data_i  := VecInit(Seq.fill(DCACHE_MAX_TX)(0.U(1.W)))
   i_tx_id_rr.io.gnt_i   := dirty_rd_en
@@ -341,7 +341,7 @@ class wt_dcache_wbuffer (
   val i_dirty_rr = Module(new rr_arb_tree(new wbuffer_t, DCACHE_WBUF_DEPTH, false, false, true))
   i_dirty_rr.io.flush_i := 0.U
   i_dirty_rr.io.rr_i    := VecInit(Seq.fill(log2Ceil(DCACHE_WBUF_DEPTH))(false.B))
-  i_dirty_rr.io.req_i   := dirty.asUInt
+  i_dirty_rr.io.req_i   := dirty
   // i_dirty_rr.io.gnt_o   :=
   i_dirty_rr.io.data_i  := wbuffer_q
   i_dirty_rr.io.gnt_i   := dirty_rd_en
@@ -353,7 +353,7 @@ class wt_dcache_wbuffer (
   val i_clean_rr = Module(new rr_arb_tree(new wbuffer_t, DCACHE_WBUF_DEPTH, false, false, false))
   i_clean_rr.io.flush_i:= 0.U
   i_clean_rr.io.rr_i   := VecInit(Seq.fill(log2Ceil(DCACHE_WBUF_DEPTH))(false.B))
-  i_clean_rr.io.req_i  := tocheck.asUInt
+  i_clean_rr.io.req_i  := tocheck
   // i_clean_rr.io.gnt_o  :=
   i_clean_rr.io.data_i := wbuffer_q
   i_clean_rr.io.gnt_i  := check_en_d

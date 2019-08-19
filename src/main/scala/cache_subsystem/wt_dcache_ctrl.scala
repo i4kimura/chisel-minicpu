@@ -19,16 +19,16 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     // interface to miss handler
     val miss_req_o      = Output(Bool())
     val miss_ack_i      = Input(Bool())
-    val miss_we_o       = Output(Bool())                   // unused (set to 0)
-    val miss_wdata_o    = Output(UInt(64.W))               // unused (set to 0)
-    val miss_vld_bits_o = Output(UInt(DCACHE_SET_ASSOC.W)) // valid bits at the missed index
+    val miss_we_o       = Output(Bool())                        // unused (set to 0)
+    val miss_wdata_o    = Output(UInt(64.W))                    // unused (set to 0)
+    val miss_vld_bits_o = Output(Vec(DCACHE_SET_ASSOC, Bool())) // valid bits at the missed index
     val miss_paddr_o    = Output(UInt(64.W))
-    val miss_nc_o       = Output(Bool())                   // request to I/O space
-    val miss_size_o     = Output(UInt(3.W))                // 00: 1byte, 01: 2byte, 10: 4byte, 11: 8byte, 111: cacheline
-    val miss_id_o       = Output(UInt(CACHE_ID_WIDTH.W))   // set to constant ID
-    val miss_replay_i   = Input(Bool())                    // request collided with pending miss - have to replay the request
-    val miss_rtrn_vld_i = Input(Bool())                    // signals that the miss has been served, asserted in the same cycle as when the data returns from memory
-                                                           // used to detect readout mux collisions
+    val miss_nc_o       = Output(Bool())                        // request to I/O space
+    val miss_size_o     = Output(UInt(3.W))                     // 00: 1byte, 01: 2byte, 10: 4byte, 11: 8byte, 111: cacheline
+    val miss_id_o       = Output(UInt(CACHE_ID_WIDTH.W))        // set to constant ID
+    val miss_replay_i   = Input(Bool())                         // request collided with pending miss - have to replay the request
+    val miss_rtrn_vld_i = Input(Bool())                         // signals that the miss has been served, asserted in the same cycle as when the data returns from memory
+                                                                // used to detect readout mux collisions
     val wr_cl_vld_i   = Input(Bool())
     // cache memory interface
     val rd_tag_o      = Output(UInt(DCACHE_TAG_WIDTH.W))       // tag in - comes one cycle later
@@ -38,8 +38,8 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     val rd_tag_only_o = Output(Bool())                   // set to zero here
     val rd_ack_i      = Input(Bool())
     val rd_data_i     = Input(UInt(64.W))
-    val rd_vld_bits_i = Input(UInt(DCACHE_SET_ASSOC.W))
-    val rd_hit_oh_i   = Input(UInt(DCACHE_SET_ASSOC.W))
+    val rd_vld_bits_i = Input(Vec(DCACHE_SET_ASSOC, Bool()))
+    val rd_hit_oh_i   = Input(Vec(DCACHE_SET_ASSOC, Bool()))
   })
 
   // controller FSM
@@ -50,11 +50,11 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
   val address_tag_q = RegInit(0.U(DCACHE_TAG_WIDTH.W))
   val address_idx_q = RegInit(0.U(DCACHE_CL_IDX_WIDTH.W))
   val address_off_q = RegInit(0.U(DCACHE_OFFSET_WIDTH.W))
-  val vld_data_q    = RegInit(0.U(DCACHE_SET_ASSOC.W))
+  val vld_data_q    = RegInit(VecInit(Seq.fill(DCACHE_SET_ASSOC)(false.B)))
   val address_tag_d = Wire(UInt(DCACHE_TAG_WIDTH.W))
   val address_idx_d = Wire(UInt(DCACHE_CL_IDX_WIDTH.W))
   val address_off_d = Wire(UInt(DCACHE_OFFSET_WIDTH.W))
-  val vld_data_d    = Wire(UInt(DCACHE_SET_ASSOC.W))
+  val vld_data_d    = Wire(Vec(DCACHE_SET_ASSOC, Bool()))
 
   val save_tag = Wire(Bool())
   val rd_req_d = Wire(Bool())
@@ -139,7 +139,7 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
         when (io.wr_cl_vld_i || !rd_ack_q) {
           state_d := replayreq_s
           // we've got a hit
-        } .elsewhen (io.rd_hit_oh_i.orR && io.cache_en_i) {
+        } .elsewhen (io.rd_hit_oh_i.asUInt.orR && io.cache_en_i) {
           state_d := idle_s
           io.req_port_o.data_rvalid := true.B
           // we can handle another request

@@ -41,7 +41,7 @@ class rr_arb_tree[T<:Data](
     val rr_i    = Input (Vec(log2Ceil(NumIn), Bool())) // external RR prio (needs to be enabled above)
 
     // input requests and data
-    val req_i = Input (UInt(NumIn.W))
+    val req_i = Input (Vec(NumIn, Bool()))
     /* verilator lint_off UNOPTFLAT */
     val gnt_o = Output(Vec(NumIn, Bool()))
     /* verilator lint_on UNOPTFLAT */
@@ -71,7 +71,7 @@ class rr_arb_tree[T<:Data](
     val req_nodes   = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(false.B)))          // used to propagate the requests to slave
     /* lint_off */
     val rr_q  = Wire(Vec(NumLevels, Bool()))
-    val req_d = Wire(UInt(NumIn.W))
+    val req_d = Wire(Vec(NumIn, Bool()))
 
     // the final arbitration decision can be taken from the root of the tree
     io.req_o  := req_nodes(0)
@@ -88,7 +88,7 @@ class rr_arb_tree[T<:Data](
       if (LockIn) { // gen_lock
         val lock_d = Wire(Bool())
         val lock_q = RegInit(false.B)
-        val req_q = RegInit(0.U(NumIn.W))
+        val req_q  = RegInit(VecInit(Seq.fill(NumIn)(false.B)))
 
         lock_d := io.req_o & ~io.gnt_i
         req_d  := Mux(lock_q, req_q, io.req_i)
@@ -114,7 +114,7 @@ class rr_arb_tree[T<:Data](
         // // pragma translate_on
 
         when (io.flush_i) {
-          req_q := false.B
+          req_q := VecInit(Seq.fill(NumIn)(false.B))
         } .otherwise {
           req_q := req_d
         }
