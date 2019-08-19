@@ -105,10 +105,10 @@ object wt_cache_pkg
 
   // icache interface
   class icache_req_t extends Bundle {
-    val way    = UInt(log2(ICACHE_SET_ASSOC)) // way to replace
-    val paddr  = UInt(64.W)                               // physical address
-    val nc     = Bool()                                   // noncacheable
-    val tid    = UInt(CACHE_ID_WIDTH)                     // threadi id (used as transaction id in Ariane)
+    val way    = UInt(log2(ICACHE_SET_ASSOC).W)  // way to replace
+    val paddr  = UInt(64.W)                      // physical address
+    val nc     = Bool()                          // noncacheable
+    val tid    = UInt(CACHE_ID_WIDTH.W)          // threadi id (used as transaction id in Ariane)
   }
 
   class icache_rtrn_t extends Bundle {

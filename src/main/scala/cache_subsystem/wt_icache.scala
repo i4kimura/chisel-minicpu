@@ -36,7 +36,7 @@ class wt_icache (
   val vaddr_d     = Wire(UInt(64.W))
   val vaddr_q     = RegInit(0.U(64.W))
   val paddr_is_nc = Wire(Bool())              // asserted if physical address is non-cacheable
-  val cl_hit      = Wire(UInt(ICACHE_SET_ASSOC.W)) // hit from tag compare
+  val cl_hit      = Wire(Vec(ICACHE_SET_ASSOC, Bool())) // hit from tag compare
   val cache_rden  = Wire(Bool())               // triggers cache lookup
   val cache_wren  = Wire(Bool())               // triggers write to cacheline
   val cmp_en_d    = Wire(Bool())
@@ -70,12 +70,12 @@ class wt_icache (
   val cl_tag_q     = RegInit(0.U(ICACHE_TAG_WIDTH.W))                       // this is the cache tag
   val cl_tag_rdata = Wire(Vec(ICACHE_SET_ASSOC, UInt(ICACHE_TAG_WIDTH .W))) // these are the tags coming from the tagmem
   val cl_rdata     = Wire(Vec(ICACHE_SET_ASSOC, UInt(ICACHE_LINE_WIDTH.W))) // these are the cachelines coming from the cache
-  val cl_sel       = Wire(Vec(FETCH_WIDTH, UInt(ICACHE_SET_ASSOC.W)))      // selected word from each cacheline
+  val cl_sel       = Wire(Vec(ICACHE_SET_ASSOC, UInt(FETCH_WIDTH.W)))      // selected word from each cacheline
 
   val vld_req   = Wire(UInt(ICACHE_SET_ASSOC.W))    // bit enable for valid regs
   val vld_we    = Wire(Bool())                      // valid bits write enable
   val vld_wdata = Wire(UInt(ICACHE_SET_ASSOC.W))    // valid bits to write
-  val vld_rdata = Wire(UInt(ICACHE_SET_ASSOC.W))    // valid bits coming from valid regs
+  val vld_rdata = Wire(Vec(ICACHE_SET_ASSOC, Bool())) // valid bits coming from valid regs
   val vld_addr  = Wire(UInt(ICACHE_CL_IDX_WIDTH.W)) // valid bit
 
   // cpmtroller FSM
@@ -100,6 +100,7 @@ class wt_icache (
 
   // latch this in case we have to stall later on
   // make sure this is 32bit aligned
+
   vaddr_d := Mux(io.dreq_o.ready & io.dreq_i.req, io.dreq_i.vaddr, vaddr_q)
   io.areq_o.fetch_vaddr := Cat(vaddr_q >> 2, 0.U(2.W))
 
@@ -125,7 +126,7 @@ class wt_icache (
                                                   Cat(cl_tag_d, vaddr_q(ICACHE_INDEX_WIDTH-1, ICACHE_OFFSET_WIDTH), VecInit(Seq.fill(ICACHE_OFFSET_WIDTH)(false.B)).asUInt)) // align to cl
   }
 
-  io.mem_data_if.bits.tid   := RdTxId.U
+  io.mem_data_if.bits.tid   := RdTxId.asUInt
 
   io.mem_data_if.bits.nc    := paddr_is_nc
   // way that is being replaced
@@ -220,7 +221,7 @@ class wt_icache (
         when (flush_d) {
           state_d  := idle_s
           // we have a hit or an exception output valid result
-        } .elsewhen ((cl_hit.orR && cache_en_q) || io.areq_i.fetch_exception.valid) {
+        } .elsewhen ((cl_hit.asUInt.orR && cache_en_q) || io.areq_i.fetch_exception.valid) {
           io.dreq_o.valid  := ~io.dreq_i.kill_s2  // just don't output in this case
           state_d          := idle_s
 
@@ -348,13 +349,13 @@ class wt_icache (
               Mux(inv_en, io.mem_rtrn_if.bits.inv.idx(ICACHE_INDEX_WIDTH-1, ICACHE_OFFSET_WIDTH),
                   cl_index))
 
-  vld_req  := Mux(flush_en || cache_rden, VecInit(Seq.fill(ICACHE_SET_ASSOC)(true.B)),
-              Mux(io.mem_rtrn_if.bits.inv.all && inv_en, VecInit(Seq.fill(ICACHE_SET_ASSOC)(true.B)),
+  vld_req  := Mux(flush_en || cache_rden, VecInit(Seq.fill(ICACHE_SET_ASSOC)(true.B)).asUInt,
+              Mux(io.mem_rtrn_if.bits.inv.all && inv_en, VecInit(Seq.fill(ICACHE_SET_ASSOC)(true.B)).asUInt,
               Mux(io.mem_rtrn_if.bits.inv.vld && inv_en, icache_way_bin2oh(io.mem_rtrn_if.bits.inv.way),
                   repl_way_oh_q)))
 
-  vld_wdata := Mux(cache_wren, VecInit(Seq.fill(ICACHE_SET_ASSOC)(true.B)),
-                               VecInit(Seq.fill(ICACHE_SET_ASSOC)(false.B)))
+  vld_wdata := Mux(cache_wren, VecInit(Seq.fill(ICACHE_SET_ASSOC)(true.B )).asUInt,
+                               VecInit(Seq.fill(ICACHE_SET_ASSOC)(false.B)).asUInt)
 
   vld_we    := (cache_wren | inv_en | flush_en)
   // vld_req   := (vld_we | cache_rden)
@@ -366,21 +367,22 @@ class wt_icache (
   repl_way_oh_d := Mux(cmp_en_q, icache_way_bin2oh(repl_way), repl_way_oh_q)
 
   // enable signals for memory arrays
-  cl_req   := Mux(cache_rden, VecInit(Seq.fill(ICACHE_SET_ASSOC)(true.B)),
-              Mux(cache_wren, repl_way_oh_q, VecInit(Seq.fill(ICACHE_SET_ASSOC)(false.B))))
+  cl_req   := Mux(cache_rden, VecInit(Seq.fill(ICACHE_SET_ASSOC)(true.B)).asUInt,
+              Mux(cache_wren, repl_way_oh_q,
+                  VecInit(Seq.fill(ICACHE_SET_ASSOC)(false.B)).asUInt))
   cl_we    := cache_wren
 
 
   // find invalid cache line
   val i_lzc = Module(new lzc(ICACHE_SET_ASSOC))
-  i_lzc.io.in_i    := ~vld_rdata
+  i_lzc.io.in_i  := vld_rdata.map(x => ~x)
   inv_way        := i_lzc.io.cnt_o
   all_ways_valid := i_lzc.io.empty_o
 
   // generate random cacheline index
   val i_lfsr = Module(new lfsr_8bit(ICACHE_SET_ASSOC))
-  i_lfsr.io.en_i           := update_lfsr
-  // i_lfsr.io.refill_way_oh  :=
+  i_lfsr.io.en_i := update_lfsr
+  // i_lfsr.refill_way_oh  :=
   rnd_way := i_lfsr.io.refill_way_bin
 
 
@@ -391,18 +393,22 @@ class wt_icache (
   val hit_idx = Wire(UInt(log2Ceil(ICACHE_SET_ASSOC).W))
 
   for (i <- 0 until ICACHE_SET_ASSOC) { // : gen_tag_cmpsel
-    cl_hit(i) := (cl_tag_rdata(i) === cl_tag_d) & vld_rdata(i);
-    cl_sel(i) := cl_rdata(i)(Cat(cl_offset_q, 0.U(3.W)) + (FETCH_WIDTH-1).U, Cat(cl_offset_q, 0.U(3.W)))
+    cl_hit(i) := (cl_tag_rdata(i) === cl_tag_d) & vld_rdata(i)
+    val cl_sel_data = Wire(Vec(ICACHE_LINE_WIDTH/FETCH_WIDTH, UInt(FETCH_WIDTH.W)))
+    for(j <- 0 until ICACHE_LINE_WIDTH/FETCH_WIDTH) { cl_sel_data(j) := cl_rdata(i)(FETCH_WIDTH*j + FETCH_WIDTH-1, FETCH_WIDTH*j) }
+    cl_sel(i) := cl_sel_data(cl_offset_q)
   }
 
 
   val i_lzc_hit = Module(new lzc(ICACHE_SET_ASSOC))
-  i_lzc_hit.io.in_i    := cl_hit
+  i_lzc_hit.io.in_i := cl_hit
   hit_idx := i_lzc_hit.io.cnt_o
-  // i_lzc_hit.io.empty_o :=
+  // i_lzc_hit.empty_o :=
 
-  io.dreq_o.data := Mux(cmp_en_q, cl_sel(hit_idx), io.mem_rtrn_if.bits.data(Cat(cl_offset_q,0.U(3.W)) + (FETCH_WIDTH-1).U,
-                                                                            Cat(cl_offset_q,0.U(3.W))))
+  val w_mem_rtrn_data = Wire(Vec(ICACHE_LINE_WIDTH/FETCH_WIDTH, UInt(FETCH_WIDTH.W)))
+  for(j <- 0 until ICACHE_LINE_WIDTH/FETCH_WIDTH) { w_mem_rtrn_data(j) := io.mem_rtrn_if.bits.data(FETCH_WIDTH*j + FETCH_WIDTH-1, FETCH_WIDTH*j) }
+  io.dreq_o.data := Mux(cmp_en_q, cl_sel(hit_idx), w_mem_rtrn_data(cl_offset_q))
+
 
   ///////////////////////////////////////////////////////
   // memory arrays and regs
@@ -420,7 +426,7 @@ class wt_icache (
     // we can always use the saved tag here since it takes a
     // couple of cycle until we write to the cache upon a miss
     tag_sram.io.wdata_i := Cat(vld_wdata(i), cl_tag_q)
-    tag_sram.io.be_i    := VecInit(Seq.fill(ICACHE_TAG_WIDTH)(true.B))
+    tag_sram.io.be_i    := VecInit(Seq.fill(ICACHE_TAG_WIDTH)(true.B)).asUInt
     cl_tag_valid_rdata(i) := tag_sram.io.rdata_o
 
     cl_tag_rdata(i) := cl_tag_valid_rdata(i)(ICACHE_TAG_WIDTH-1, 0)
@@ -432,7 +438,7 @@ class wt_icache (
     data_sram.io.we_i    := cl_we
     data_sram.io.addr_i  := cl_index
     data_sram.io.wdata_i := io.mem_rtrn_if.bits.data
-    data_sram.io.be_i    := VecInit(Seq.fill(ICACHE_LINE_WIDTH)(true.B))
+    data_sram.io.be_i    := VecInit(Seq.fill(ICACHE_LINE_WIDTH)(true.B)).asUInt
     cl_rdata(i) := data_sram.io.rdata_o
   }
 
