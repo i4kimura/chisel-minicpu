@@ -61,17 +61,7 @@ class wt_dcache (
   val wr_data_be    = Wire(UInt(8.W))
 
   // miss unit <-> controllers/wbuffer
-  val miss_req      = Wire(Vec(NumPorts, Bool()))
-  val miss_ack      = Wire(Vec(NumPorts, Bool()))
-  val miss_nc       = Wire(Vec(NumPorts, Bool()))
-  val miss_we       = Wire(Vec(NumPorts, Bool()))
-  val miss_wdata    = Wire(Vec(NumPorts, UInt(64.W)))
-  val miss_paddr    = Wire(Vec(NumPorts, UInt(64.W)))
-  val miss_vld_bits = Wire(Vec(NumPorts, Vec(DCACHE_SET_ASSOC, Bool())))
-  val miss_size     = Wire(Vec(NumPorts, UInt(3.W)))
-  val miss_id       = Wire(Vec(NumPorts, UInt(CACHE_ID_WIDTH.W)))
-  val miss_replay   = Wire(Vec(NumPorts, Bool()))
-  val miss_rtrn_vld = Wire(Vec(NumPorts, Bool()))
+  val w_miss_if = Wire(Vec(NumPorts, new dcache_miss_if()))
   val miss_rtrn_id  = Wire(UInt(CACHE_ID_WIDTH.W))
 
   // memory <-> read controllers/miss unit
@@ -103,23 +93,14 @@ class wt_dcache (
   // amo interface
   i_wt_dcache_missunit.io.amo_req_i          := io.amo_req_i
   io.amo_resp_o := i_wt_dcache_missunit.io.amo_resp_o
-  // miss handling interface
-  i_wt_dcache_missunit.io.miss_req_i         := miss_req
-  miss_ack := i_wt_dcache_missunit.io.miss_ack_o
-  i_wt_dcache_missunit.io.miss_nc_i          := miss_nc
-  i_wt_dcache_missunit.io.miss_we_i          := miss_we
-  i_wt_dcache_missunit.io.miss_wdata_i       := miss_wdata
-  i_wt_dcache_missunit.io.miss_paddr_i       := miss_paddr
-  i_wt_dcache_missunit.io.miss_vld_bits_i    := miss_vld_bits
-  i_wt_dcache_missunit.io.miss_size_i        := miss_size
-  i_wt_dcache_missunit.io.miss_id_i          := miss_id
-  miss_replay   := i_wt_dcache_missunit.io.miss_replay_o
-  miss_rtrn_vld := i_wt_dcache_missunit.io.miss_rtrn_vld_o
-  miss_rtrn_id  := i_wt_dcache_missunit.io.miss_rtrn_id_o
-    // from writebuffer
+
+  i_wt_dcache_missunit.io.miss_if <> w_miss_if    // miss handling interface
+  miss_rtrn_id := i_wt_dcache_missunit.io.miss_rtrn_id_o
+
+  // from writebuffer
   i_wt_dcache_missunit.io.tx_paddr_i         := tx_paddr
   i_wt_dcache_missunit.io.tx_vld_i           := tx_vld
-    // cache memory interface
+  // cache memory interface
   wr_cl_vld     := i_wt_dcache_missunit.io.wr_cl_vld_o
   wr_cl_nc      := i_wt_dcache_missunit.io.wr_cl_nc_o
   wr_cl_we      := i_wt_dcache_missunit.io.wr_cl_we_o
@@ -129,7 +110,7 @@ class wt_dcache (
   wr_cl_data    := i_wt_dcache_missunit.io.wr_cl_data_o
   wr_cl_data_be := i_wt_dcache_missunit.io.wr_cl_data_be_o
   wr_vld_bits   := i_wt_dcache_missunit.io.wr_vld_bits_o
-    // memory interface
+  // memory interface
   i_wt_dcache_missunit.io.mem_rtrn_vld_i     := io.mem_rtrn_vld_i
   i_wt_dcache_missunit.io.mem_rtrn_i         := io.mem_rtrn_i
   io.mem_data_req_o := i_wt_dcache_missunit.io.mem_data_req_o
@@ -148,18 +129,10 @@ class wt_dcache (
     // reqs from core
     i_wt_dcache_ctrl.io.req_port_i      := io.req_ports_i(k)
     io.req_ports_o(k) := i_wt_dcache_ctrl.io.req_port_o
+
     // miss interface
-    miss_req (k) := i_wt_dcache_ctrl.io.miss_req_o
-    i_wt_dcache_ctrl.io.miss_ack_i      := miss_ack(k)
-    miss_we(k)       := i_wt_dcache_ctrl.io.miss_we_o
-    miss_wdata(k)    := i_wt_dcache_ctrl.io.miss_wdata_o
-    miss_vld_bits(k) := i_wt_dcache_ctrl.io.miss_vld_bits_o
-    miss_paddr (k)   := i_wt_dcache_ctrl.io.miss_paddr_o
-    miss_nc    (k)   := i_wt_dcache_ctrl.io.miss_nc_o
-    miss_size  (k)   := i_wt_dcache_ctrl.io.miss_size_o
-    miss_id    (k)   := i_wt_dcache_ctrl.io.miss_id_o
-    i_wt_dcache_ctrl.io.miss_replay_i   := miss_replay(k)
-    i_wt_dcache_ctrl.io.miss_rtrn_vld_i := miss_rtrn_vld (k)
+    i_wt_dcache_ctrl.io.miss_if <> w_miss_if(k)
+
     // used to detect readout mux collisions
     i_wt_dcache_ctrl.io.wr_cl_vld_i     := wr_cl_vld
 
@@ -182,18 +155,10 @@ class wt_dcache (
   // request ports from core (store unit)
   i_wt_dcache_wbuffer.io.req_port_i      := io.req_ports_i(2)
   io.req_ports_o(2) := i_wt_dcache_wbuffer.io.req_port_o
+
   // miss unit interface
-  miss_req(2) := i_wt_dcache_wbuffer.io.miss_req_o
-  i_wt_dcache_wbuffer.io.miss_ack_i      := miss_ack(2)
-  miss_we(2)       := i_wt_dcache_wbuffer.io.miss_we_o
-  miss_wdata(2)    := i_wt_dcache_wbuffer.io.miss_wdata_o
-  miss_vld_bits(2) := i_wt_dcache_wbuffer.io.miss_vld_bits_o
-  miss_paddr(2)    := i_wt_dcache_wbuffer.io.miss_paddr_o
-  miss_nc(2)       := i_wt_dcache_wbuffer.io.miss_nc_o
-  miss_size(2)     := i_wt_dcache_wbuffer.io.miss_size_o
-  miss_id(2)       := i_wt_dcache_wbuffer.io.miss_id_o
-  i_wt_dcache_wbuffer.io.miss_rtrn_vld_i := miss_rtrn_vld(2)
-  i_wt_dcache_wbuffer.io.miss_rtrn_id_i  := miss_rtrn_id
+  i_wt_dcache_wbuffer.io.miss_if <> w_miss_if(2)
+  i_wt_dcache_wbuffer.io.miss_rtrn_id_i := miss_rtrn_id
 
   // cache read interface
   i_wt_dcache_wbuffer.io.rd_if <> w_rd_if(2)

@@ -336,7 +336,10 @@ object wt_cache_pkg
     return out.asUInt
   }
 
+  //
   // Interface
+  //
+  // DCache Read Interface
   class dcache_rd_if extends Bundle {
     val rd_tag      = Output(UInt(DCACHE_TAG_WIDTH.W   ))  // tag in - comes one cycle later
     val rd_idx      = Output(UInt(DCACHE_CL_IDX_WIDTH.W))
@@ -346,4 +349,20 @@ object wt_cache_pkg
     val rd_prio     = Output(Bool())                       // 0: low prio, 1: high prio
     val rd_ack      = Input (Bool())
   }
+
+  // DCache Miss Handling Interface
+  class dcache_miss_if extends Bundle {
+    val req      = Output(Bool())
+    val ack      = Input (Bool())
+    val nc       = Output(Bool())
+    val we       = Output(Bool())
+    val wdata    = Output(UInt(64.W))
+    val paddr    = Output(UInt(64.W))
+    val vld_bits = Output(Vec(DCACHE_SET_ASSOC, Bool()))
+    val size     = Output(UInt(3.W))
+    val id       = Output(UInt(CACHE_ID_WIDTH.W))
+    val replay   = Input (Bool())    // signals that the request collided with a pending read
+    val rtrn_vld = Input (Bool())    // signals response from memory
+  }
+
 }

@@ -57,17 +57,8 @@ class wt_dcache_wbuffer (
     val req_port_o = Output(new dcache_req_o_t())
 
     // interface to miss handler
-    val miss_ack_i      = Input(Bool())
-    val miss_paddr_o    = Output(UInt(64.W))
-    val miss_req_o      = Output(Bool())
-    val miss_we_o       = Output(Bool())                    // always 1 here
-    val miss_wdata_o    = Output(UInt(64.W))
-    val miss_vld_bits_o = Output(Vec(DCACHE_SET_ASSOC, Bool()))  // unused here (set to 0)
-    val miss_nc_o       = Output(Bool())                    // request to I/O space
-    val miss_size_o     = Output(UInt(3.W))                 //
-    val miss_id_o       = Output(UInt(CACHE_ID_WIDTH.W))    // ID of this transaction (wbuffer uses all IDs from 0 to DCACHE_MAX_TX-1)
-                                                            // write responses from memory
-    val miss_rtrn_vld_i = Input(Bool())
+    val miss_if = new dcache_miss_if()
+    // write responses from memory
     val miss_rtrn_id_i  = Input(UInt(CACHE_ID_WIDTH.W))     // transaction ID to clear
 
     // cache read interface
@@ -150,14 +141,14 @@ class wt_dcache_wbuffer (
   // misc
   ///////////////////////////////////////////////////////
 
-  io.miss_nc_o := nc_pending_q
+  io.miss_if.nc := nc_pending_q
 
   // noncacheable if request goes to I/O space, or if cache is disabled
   addr_is_nc := (~io.cache_en_i) |
                 (~is_inside_cacheable_regions(ArianeCfg, Cat(io.req_port_i.address_tag, VecInit(Seq.fill(DCACHE_INDEX_WIDTH)(false.B)).asUInt)))
 
-  io.miss_we_o       := true.B
-  io.miss_vld_bits_o := VecInit(Seq.fill(DCACHE_SET_ASSOC)(false.B))
+  io.miss_if.we       := true.B
+  io.miss_if.vld_bits := VecInit(Seq.fill(DCACHE_SET_ASSOC)(false.B))
   io.wbuffer_data_o  := wbuffer_q
 
   for (k <- 0 until DCACHE_MAX_TX) { // begin : gen_tx_vld
@@ -183,23 +174,23 @@ class wt_dcache_wbuffer (
   // i_vld_bdirty.io.empty_o :=
 
   // add the offset to the physical base address of this buffer entry
-  io.miss_paddr_o := Cat(wbuffer_dirty_mux.wtag, bdirty_off)
-  io.miss_id_o    := tx_id
+  io.miss_if.paddr := Cat(wbuffer_dirty_mux.wtag, bdirty_off)
+  io.miss_if.id    := tx_id
 
   // is there any dirty word to be transmitted, and is there a free TX slot?
-  io.miss_req_o := (dirty.foldLeft(false.B)(_|_)) && free_tx_slots
+  io.miss_if.req := (dirty.foldLeft(false.B)(_|_)) && free_tx_slots
 
   // get size of aligned words, and the corresponding byte enables
   // note: openpiton can only handle aligned offsets + size, and hence
   // we have to split unaligned data into multiple transfers (see toSize64)
   // e.g. if we have the following valid bytes: 0011_1001 -> TX0: 0000_0001, TX1: 0000_1000, TX2: 0011_0000
-  io.miss_size_o  := toSize64(bdirty(dirty_ptr))
+  io.miss_if.size  := toSize64(bdirty(dirty_ptr))
 
   // replicate transfers shorter than a dword
-  io.miss_wdata_o := repData64(wbuffer_dirty_mux.data.asUInt,
+  io.miss_if.wdata := repData64(wbuffer_dirty_mux.data.asUInt,
                                bdirty_off,
-                               io.miss_size_o(1, 0))
-  tx_be := toByteEnable8(bdirty_off, io.miss_size_o(1, 0))
+                               io.miss_if.size(1, 0))
+  tx_be := toByteEnable8(bdirty_off, io.miss_if.size(1, 0))
 
   ///////////////////////////////////////////////////////
   // TX status registers and ID counters
@@ -213,7 +204,7 @@ class wt_dcache_wbuffer (
   rtrn_empty := i_rtrn_id_fifo.io.empty_o
   // i_rtrn_id_fifo.io.usage_o    :=
   i_rtrn_id_fifo.io.data_i     := io.miss_rtrn_id_i
-  i_rtrn_id_fifo.io.push_i     := io.miss_rtrn_vld_i
+  i_rtrn_id_fifo.io.push_i     := io.miss_if.rtrn_vld
   rtrn_id := i_rtrn_id_fifo.io.data_o
   i_rtrn_id_fifo.io.pop_i      := evict
 
@@ -415,7 +406,7 @@ class wt_dcache_wbuffer (
   }
 
   // mark bytes sent out to the memory system
-  when (io.miss_req_o && io.miss_ack_i) {
+  when (io.miss_if.req && io.miss_if.ack) {
     dirty_rd_en := true.B
       for (k <- 0 until 8) {
         when (tx_be(k)) {

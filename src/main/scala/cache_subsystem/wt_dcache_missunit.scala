@@ -30,21 +30,10 @@ class wt_dcache_missunit (
                                          // AMO interface
     val amo_req_i  = Input (new amo_req_t())
     val amo_resp_o = Output(new amo_resp_t())
-    // miss handling interface (ld, ptw, wbuffer)
-    val miss_req_i      = Input (Vec(NumPorts, Bool()))
-    val miss_ack_o      = Output(Vec(NumPorts, Bool()))
-    val miss_nc_i       = Input (Vec(NumPorts, Bool()))
-    val miss_we_i       = Input (Vec(NumPorts, Bool()))
-    val miss_wdata_i    = Input (Vec(NumPorts, UInt(64.W)))
-    val miss_paddr_i    = Input (Vec(NumPorts, UInt(64.W)))
-    val miss_vld_bits_i = Input (Vec(NumPorts, Vec(DCACHE_SET_ASSOC, Bool())))
-    val miss_size_i     = Input (Vec(NumPorts, UInt(3.W)))
-    val miss_id_i       = Input (Vec(NumPorts, UInt(CACHE_ID_WIDTH.W)))
-    // signals that the request collided with a pending read
-    val miss_replay_o   = Output(Vec(NumPorts, Bool()))
-    // signals response from memory
-    val miss_rtrn_vld_o = Output(Vec(NumPorts, Bool()))
-    val miss_rtrn_id_o  = Output(UInt(CACHE_ID_WIDTH.W))
+
+    val miss_if        = Flipped(Vec(NumPorts, new dcache_miss_if())) // miss handling interface (ld, ptw, wbuffer)
+    val miss_rtrn_id_o = Output(UInt(CACHE_ID_WIDTH.W))
+
     // from writebuffer
     val tx_paddr_i = Input (Vec(DCACHE_MAX_TX, UInt(64.W)))   // used to check for address collisions with read operations
     val tx_vld_i   = Input (Vec(DCACHE_MAX_TX, Bool()))       // used to check for address collisions with read operations
@@ -138,10 +127,10 @@ class wt_dcache_missunit (
 
   for(i <- 0 until NumPorts) {
     miss_req_masked_d(i) := Mux(lock_reqs,  miss_req_masked_q(i),
-                            Mux(mask_reads, io.miss_we_i(i) & io.miss_req_i(i),
-                               io.miss_req_i(i)))
+                            Mux(mask_reads, io.miss_if(i).we & io.miss_if(i).req,
+                               io.miss_if(i).req))
   }
-  miss_is_write     := io.miss_we_i(miss_port_idx)
+  miss_is_write     := io.miss_if(miss_port_idx).we
 
   // read port arbiter
   val i_lzc_reqs = Module (new lzc(NumPorts))
@@ -149,9 +138,9 @@ class wt_dcache_missunit (
   miss_port_idx := i_lzc_reqs.io.cnt_o
   // i_lzc_reqs.io.empty_o
 
-  io.miss_ack_o := VecInit(Seq.fill(NumPorts)(false.B))
+  io.miss_if.map(x => x.ack := false.B)
   when (!amo_sel) {
-    io.miss_ack_o(miss_port_idx) := io.mem_data_ack_i & io.mem_data_req_o
+    io.miss_if(miss_port_idx).ack := io.mem_data_ack_i & io.mem_data_req_o
   }
 
   ///////////////////////////////////////////////////////
@@ -160,7 +149,7 @@ class wt_dcache_missunit (
 
   // find invalid cache line
   val i_lzc_inv = Module(new lzc(DCACHE_SET_ASSOC))
-  i_lzc_inv.io.in_i := io.miss_vld_bits_i(miss_port_idx).map(x => ~x)
+  i_lzc_inv.io.in_i := io.miss_if(miss_port_idx).vld_bits.map(x => ~x)
   inv_way           := i_lzc_inv.io.cnt_o
   all_ways_valid    := i_lzc_inv.io.empty_o
 
@@ -173,34 +162,34 @@ class wt_dcache_missunit (
 
   repl_way               := Mux(all_ways_valid, rnd_way, inv_way)
 
-  mshr_d.size            := Mux(mshr_allocate, io.miss_size_i    (miss_port_idx), mshr_q.size)
-  mshr_d.paddr           := Mux(mshr_allocate, io.miss_paddr_i   (miss_port_idx), mshr_q.paddr)
-  mshr_d.vld_bits        := Mux(mshr_allocate, io.miss_vld_bits_i(miss_port_idx), mshr_q.vld_bits)
-  mshr_d.id              := Mux(mshr_allocate, io.miss_id_i      (miss_port_idx), mshr_q.id)
-  mshr_d.nc              := Mux(mshr_allocate, io.miss_nc_i      (miss_port_idx), mshr_q.nc)
-  mshr_d.repl_way        := Mux(mshr_allocate, repl_way                         , mshr_q.repl_way)
-  mshr_d.miss_port_idx   := Mux(mshr_allocate, miss_port_idx                    , mshr_q.miss_port_idx)
+  mshr_d.size            := Mux(mshr_allocate, io.miss_if(miss_port_idx).size    , mshr_q.size)
+  mshr_d.paddr           := Mux(mshr_allocate, io.miss_if(miss_port_idx).paddr   , mshr_q.paddr)
+  mshr_d.vld_bits        := Mux(mshr_allocate, io.miss_if(miss_port_idx).vld_bits, mshr_q.vld_bits)
+  mshr_d.id              := Mux(mshr_allocate, io.miss_if(miss_port_idx).id      , mshr_q.id)
+  mshr_d.nc              := Mux(mshr_allocate, io.miss_if(miss_port_idx).nc      , mshr_q.nc)
+  mshr_d.repl_way        := Mux(mshr_allocate, repl_way                          , mshr_q.repl_way)
+  mshr_d.miss_port_idx   := Mux(mshr_allocate, miss_port_idx                     , mshr_q.miss_port_idx)
 
   // currently we only have one outstanding read TX, hence an incoming load clears the MSHR
   mshr_vld_d := Mux(mshr_allocate, true.B,
                    Mux(load_ack, false.B, mshr_vld_q))
 
-  io.miss_o  := Mux(mshr_allocate, ~io.miss_nc_i(miss_port_idx), false.B)
+  io.miss_o := Mux(mshr_allocate, ~io.miss_if(miss_port_idx).nc, false.B)
 
 
   for(k<-0 until NumPorts) { // : gen_rdrd_collision
-    mshr_rdrd_collision(k)   := (mshr_q.paddr(63, DCACHE_OFFSET_WIDTH) === io.miss_paddr_i(k)(63, DCACHE_OFFSET_WIDTH)) && (mshr_vld_q | mshr_vld_q1)
-    mshr_rdrd_collision_d(k) := Mux(!io.miss_req_i(k), false.B, mshr_rdrd_collision_q(k)) | mshr_rdrd_collision(k)
+    mshr_rdrd_collision(k)   := (mshr_q.paddr(63, DCACHE_OFFSET_WIDTH) === io.miss_if(k).paddr(63, DCACHE_OFFSET_WIDTH)) && (mshr_vld_q | mshr_vld_q1)
+    mshr_rdrd_collision_d(k) := Mux(!io.miss_if(k).req, false.B, mshr_rdrd_collision_q(k)) | mshr_rdrd_collision(k)
   }
 
   // read/write collision, stalls the corresponding request
   // write collides with MSHR
-  mshr_rdwr_collision := (mshr_q.paddr(63, DCACHE_OFFSET_WIDTH) === io.miss_paddr_i(NumPorts-1)(63, DCACHE_OFFSET_WIDTH)) && mshr_vld_q
+  mshr_rdwr_collision := (mshr_q.paddr(63, DCACHE_OFFSET_WIDTH) === io.miss_if(NumPorts-1).paddr(63, DCACHE_OFFSET_WIDTH)) && mshr_vld_q
 
   // read collides with inflight TX
   var tx_rdwr_collision = WireInit(false.B)
   for(k <- 0 until DCACHE_MAX_TX) {
-    tx_rdwr_collision = tx_rdwr_collision | (io.miss_paddr_i(miss_port_idx)(63, DCACHE_OFFSET_WIDTH) === io.tx_paddr_i(k)(63, DCACHE_OFFSET_WIDTH)) && io.tx_vld_i(k)
+    tx_rdwr_collision = tx_rdwr_collision | (io.miss_if(miss_port_idx).paddr(63, DCACHE_OFFSET_WIDTH) === io.tx_paddr_i(k)(63, DCACHE_OFFSET_WIDTH)) && io.tx_vld_i(k)
   }
 
   ///////////////////////////////////////////////////////
@@ -237,14 +226,14 @@ class wt_dcache_missunit (
   amo_req_d := io.amo_req_i.req
 
   // outgoing memory requests (AMOs are always uncached)
-  io.mem_data_o.tid    := Mux(amo_sel, AmoTxId.U          , io.miss_id_i(miss_port_idx))
-  io.mem_data_o.nc     := Mux(amo_sel, true.B             , io.miss_nc_i(miss_port_idx))
+  io.mem_data_o.tid    := Mux(amo_sel, AmoTxId.U          , io.miss_if(miss_port_idx).id)
+  io.mem_data_o.nc     := Mux(amo_sel, true.B             , io.miss_if(miss_port_idx).nc)
   io.mem_data_o.way    := Mux(amo_sel, 0.U                , repl_way)
-  io.mem_data_o.data   := Mux(amo_sel, amo_data           , io.miss_wdata_i(miss_port_idx))
-  io.mem_data_o.size   := Mux(amo_sel, io.amo_req_i.size  , io.miss_size_i (miss_port_idx))
+  io.mem_data_o.data   := Mux(amo_sel, amo_data           , io.miss_if(miss_port_idx).wdata)
+  io.mem_data_o.size   := Mux(amo_sel, io.amo_req_i.size  , io.miss_if(miss_port_idx).size)
   io.mem_data_o.amo_op := Mux(amo_sel, io.amo_req_i.amo_op, AMO_NONE)
 
-  tmp_paddr            := Mux(amo_sel, io.amo_req_i.operand_a, io.miss_paddr_i(miss_port_idx))
+  tmp_paddr            := Mux(amo_sel, io.amo_req_i.operand_a, io.miss_if(miss_port_idx).paddr)
   io.mem_data_o.paddr  := paddrSizeAlign(tmp_paddr, io.mem_data_o.size)
 
   ///////////////////////////////////////////////////////
@@ -282,19 +271,19 @@ class wt_dcache_missunit (
   inv_vld_all        := false.B
   sc_fail            := false.B
   sc_pass            := false.B
-  io.miss_rtrn_vld_o := VecInit(Seq.fill(NumPorts)(false.B))
+  io.miss_if.map(x => x.rtrn_vld := false.B)
   when (io.mem_rtrn_vld_i) {
     switch (io.mem_rtrn_i.rtype) {
       is (dcache_load_ack_s) {
         when (mshr_vld_q) {
           load_ack := true.B
-          io.miss_rtrn_vld_o(mshr_q.miss_port_idx) := true.B
+          io.miss_if(mshr_q.miss_port_idx).rtrn_vld := true.B
         }
       }
       is (dcache_store_ack_s) {
         when (stores_inflight_q =/= 0.U) {
           store_ack := true.B
-          io.miss_rtrn_vld_o((NumPorts-1).U) := true.B
+          io.miss_if((NumPorts-1).U).rtrn_vld := true.B
         }
       }
       is (dcache_atomic_ack_s) {
@@ -364,7 +353,7 @@ class wt_dcache_missunit (
   io.mem_data_o.rtype := DCACHE_LOAD_REQ
   io.mem_data_req_o   := false.B
   io.amo_resp_o.ack   := false.B
-  io.miss_replay_o    := VecInit(Seq.fill(NumPorts)(false.B))
+  io.miss_if.map(x => x.replay := false.B)
 
   // disabling cache is possible anytime, enabling goes via flush
   enable_d         := enable_q & io.enable_i
@@ -412,7 +401,7 @@ class wt_dcache_missunit (
           // replay the read request in case the address has collided with MSHR during the time the request was pending
           // i.e., the cache state may have been updated in the mean time due to a refill at the same CL address
           when (mshr_rdrd_collision_d(miss_port_idx)) {
-            io.miss_replay_o(miss_port_idx) := true.B
+            io.miss_if(miss_port_idx).replay := true.B
             // stall in case this CL address overlaps with a write TX that is in flight
           } .elsewhen (!tx_rdwr_collision) {
             io.mem_data_req_o         := true.B

@@ -16,19 +16,11 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     // core request ports
     val req_port_i      = Input(new dcache_req_i_t())
     val req_port_o      = Output(new dcache_req_o_t())
+
     // interface to miss handler
-    val miss_req_o      = Output(Bool())
-    val miss_ack_i      = Input(Bool())
-    val miss_we_o       = Output(Bool())                        // unused (set to 0)
-    val miss_wdata_o    = Output(UInt(64.W))                    // unused (set to 0)
-    val miss_vld_bits_o = Output(Vec(DCACHE_SET_ASSOC, Bool())) // valid bits at the missed index
-    val miss_paddr_o    = Output(UInt(64.W))
-    val miss_nc_o       = Output(Bool())                        // request to I/O space
-    val miss_size_o     = Output(UInt(3.W))                     // 00: 1byte, 01: 2byte, 10: 4byte, 11: 8byte, 111: cacheline
-    val miss_id_o       = Output(UInt(CACHE_ID_WIDTH.W))        // set to constant ID
-    val miss_replay_i   = Input(Bool())                         // request collided with pending miss - have to replay the request
-    val miss_rtrn_vld_i = Input(Bool())                         // signals that the miss has been served, asserted in the same cycle as when the data returns from memory
-                                                                // used to detect readout mux collisions
+    val miss_if = new dcache_miss_if()
+
+    // used to detect readout mux collisions
     val wr_cl_vld_i   = Input(Bool())
 
     // cache memory interface
@@ -79,18 +71,18 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
   io.req_port_o.data_rdata := io.rd_data_i
 
   // to miss unit
-  io.miss_vld_bits_o := vld_data_q
-  io.miss_paddr_o    := Cat(address_tag_q, address_idx_q, address_off_q)
-  io.miss_size_o     := Mux(io.miss_nc_o, data_size_q, 7.U)
+  io.miss_if.vld_bits := vld_data_q
+  io.miss_if.paddr    := Cat(address_tag_q, address_idx_q, address_off_q)
+  io.miss_if.size     := Mux(io.miss_if.nc, data_size_q, 7.U)
 
   // noncacheable if request goes to I/O space, or if cache is disabled
-  io.miss_nc_o := (~io.cache_en_i) | (~is_inside_cacheable_regions(ArianeCfg, Cat(address_tag_q, Fill(DCACHE_INDEX_WIDTH, 0.U(1.W)))))
+  io.miss_if.nc := (~io.cache_en_i) | (~is_inside_cacheable_regions(ArianeCfg, Cat(address_tag_q, Fill(DCACHE_INDEX_WIDTH, 0.U(1.W)))))
 
-  io.miss_we_o     := 0.U
-  io.miss_wdata_o  := 0.U
-  io.miss_id_o     := RdTxId.asUInt
-  rd_req_d         := io.rd_if.rd_req
-  rd_ack_d         := io.rd_if.rd_ack
+  io.miss_if.we     := 0.U
+  io.miss_if.wdata  := 0.U
+  io.miss_if.id     := RdTxId.asUInt
+  rd_req_d          := io.rd_if.rd_req
+  rd_ack_d          := io.rd_if.rd_ack
   io.rd_if.rd_tag_only := false.B
 
 ///////////////////////////////////////////////////////
@@ -101,7 +93,7 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
   state_d                   := state_q
   save_tag                  := false.B
   io.rd_if.rd_req           := false.B
-  io.miss_req_o             := false.B
+  io.miss_if.req             := false.B
   io.req_port_o.data_rvalid := false.B
   io.req_port_o.data_gnt    := false.B
 
@@ -154,18 +146,18 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     //////////////////////////////////
     // issue request
     is (missreq_s) {
-      io.miss_req_o := true.B
+      io.miss_if.req := true.B
 
       when (io.req_port_i.kill_req) {
         io.req_port_o.data_rvalid := true.B
-        when (io.miss_ack_i) {
+        when (io.miss_if.ack) {
           state_d := killmiss_s
         } .otherwise {
           state_d := killmissack_s
         }
-      } .elsewhen (io.miss_replay_i) {
+      } .elsewhen (io.miss_if.replay) {
         state_d  := replayreq_s
-      } .elsewhen (io.miss_ack_i) {
+      } .elsewhen (io.miss_if.ack) {
         state_d  := misswait_s
       }
     }
@@ -175,12 +167,12 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     is (misswait_s) {
       when (io.req_port_i.kill_req) {
         io.req_port_o.data_rvalid := true.B
-        when (io.miss_rtrn_vld_i) {
+        when (io.miss_if.rtrn_vld) {
           state_d := idle_s
         } .otherwise {
           state_d := killmiss_s
         }
-      } .elsewhen (io.miss_rtrn_vld_i) {
+      } .elsewhen (io.miss_if.rtrn_vld) {
         state_d := idle_s
         io.req_port_o.data_rvalid := true.B
       }
@@ -198,12 +190,12 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     }
     //////////////////////////////////
     is (killmissack_s) {
-      io.miss_req_o := true.B
+      io.miss_if.req := true.B
       // in this case the miss handler did not issue
       // a transaction and we can safely go to idle
-      when (io.miss_replay_i) {
+      when (io.miss_if.replay) {
         state_d := idle_s
-      } .elsewhen (io.miss_ack_i) {
+      } .elsewhen (io.miss_if.ack) {
         state_d := killmiss_s
       }
     }
@@ -212,7 +204,7 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     // wait until miss unit responds and
     // go back to idle
     is (killmiss_s) {
-      when (io.miss_rtrn_vld_i) {
+      when (io.miss_if.rtrn_vld) {
         state_d := idle_s
       }
     }
