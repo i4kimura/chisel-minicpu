@@ -252,10 +252,10 @@ class wt_dcache_wbuffer (
   // next word to lookup in the cache
   val i_tx_id_rr = Module(new rr_arb_tree(UInt(1.W), DCACHE_MAX_TX, false, false, true))
   i_tx_id_rr.io.flush_i := false.B
-  i_tx_id_rr.io.rr_i    := 0.U
+  i_tx_id_rr.io.rr_i    := VecInit(Seq.fill(log2Ceil(DCACHE_MAX_TX))(false.B))
   i_tx_id_rr.io.req_i   := ~(io.tx_vld_o.asUInt)
   // i_tx_id_rr.io.gnt_o   :=
-  // i_tx_id_rr.io.data_i  := 0.U
+  i_tx_id_rr.io.data_i  := VecInit(Seq.fill(DCACHE_MAX_TX)(0.U(1.W)))
   i_tx_id_rr.io.gnt_i   := dirty_rd_en
   // i_tx_id_rr.io.req_o   :=
   // i_tx_id_rr.io.data_o  :=
@@ -340,7 +340,7 @@ class wt_dcache_wbuffer (
   // next dirty word to serve
   val i_dirty_rr = Module(new rr_arb_tree(new wbuffer_t, DCACHE_WBUF_DEPTH, false, false, true))
   i_dirty_rr.io.flush_i := 0.U
-  i_dirty_rr.io.rr_i    := 0.U
+  i_dirty_rr.io.rr_i    := VecInit(Seq.fill(log2Ceil(DCACHE_WBUF_DEPTH))(false.B))
   i_dirty_rr.io.req_i   := dirty.asUInt
   // i_dirty_rr.io.gnt_o   :=
   i_dirty_rr.io.data_i  := wbuffer_q
@@ -352,7 +352,7 @@ class wt_dcache_wbuffer (
   // next word to lookup in the cache
   val i_clean_rr = Module(new rr_arb_tree(new wbuffer_t, DCACHE_WBUF_DEPTH, false, false, false))
   i_clean_rr.io.flush_i:= 0.U
-  i_clean_rr.io.rr_i   := 0.U
+  i_clean_rr.io.rr_i   := VecInit(Seq.fill(log2Ceil(DCACHE_WBUF_DEPTH))(false.B))
   i_clean_rr.io.req_i  := tocheck.asUInt
   // i_clean_rr.io.gnt_o  :=
   i_clean_rr.io.data_i := wbuffer_q

@@ -37,9 +37,10 @@ class rr_arb_tree[T<:Data](
   LockIn   : Boolean = false  // set to 1'b1 to enable
 ) extends Module {
   val io = IO(new Bundle {
-    val flush_i = Input (Bool())                              // clears the arbiter state
-    val rr_i    = Input (UInt(log2Ceil(NumIn).W))          // external RR prio (needs to be enabled above)
-                                                 // input requests and data
+    val flush_i = Input (Bool())                       // clears the arbiter state
+    val rr_i    = Input (Vec(log2Ceil(NumIn), Bool())) // external RR prio (needs to be enabled above)
+
+    // input requests and data
     val req_i = Input (UInt(NumIn.W))
     /* verilator lint_off UNOPTFLAT */
     val gnt_o = Output(Vec(NumIn, Bool()))
@@ -69,7 +70,7 @@ class rr_arb_tree[T<:Data](
     val gnt_nodes   = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(false.B)))          // used to propagate the grant to masters
     val req_nodes   = WireInit(VecInit(Seq.fill(NumLevel2Pow-1)(false.B)))          // used to propagate the requests to slave
     /* lint_off */
-    val rr_q  = Wire(UInt(NumLevels.W))
+    val rr_q  = Wire(Vec(NumLevels, Bool()))
     val req_d = Wire(UInt(NumIn.W))
 
     // the final arbitration decision can be taken from the root of the tree
@@ -121,14 +122,15 @@ class rr_arb_tree[T<:Data](
         req_d := io.req_i
       }
 
-      rr_d := Mux(io.gnt_i && io.req_o, Mux(rr_q === (NumIn-1).U, 0.U, rr_q + 1.U), rr_q)
+      rr_d := Mux(io.gnt_i && io.req_o, Mux(rr_q.asUInt === (NumIn-1).U, 0.U, rr_q.asUInt + 1.U),
+                  rr_q.asUInt)
 
-      val rr_q_reg = RegInit(0.U(NumLevels.W))
+      val rr_q_reg = Reg(Vec(NumLevels, Bool()))
 
       when (io.flush_i) {
-        rr_q_reg := 0.U
+        rr_q_reg := VecInit(Seq.fill(NumLevels)(false.B))
       } .otherwise {
-        rr_q_reg := rr_d
+        rr_q_reg := rr_d.toBools
       }
       rr_q := rr_q_reg
     }

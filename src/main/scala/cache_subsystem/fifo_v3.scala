@@ -88,7 +88,7 @@ class fifo_v3 [T <: Data](
     when (io.pop_i && ~io.empty_o) {
       // read from the queue is a default assignment
       // but increment the read pointer...
-      when (read_pointer_n === FIFO_DEPTH.U(ADDR_DEPTH-1, 0) - 1.U) {
+      when (read_pointer_q === FIFO_DEPTH.U(ADDR_DEPTH-1, 0) - 1.U) {
         read_pointer_n := 0.U
       } .otherwise {
         read_pointer_n := read_pointer_q + 1.U

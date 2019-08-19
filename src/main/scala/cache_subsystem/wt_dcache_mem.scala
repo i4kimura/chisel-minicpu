@@ -123,9 +123,9 @@ class wt_dcache_mem
   for (i <- 0 until NumPorts) { wire_zero(i) := 0.U }
   val i_rr_arb_tree = Module(new rr_arb_tree(UInt(1.W), NumPorts, false, false, false))
   i_rr_arb_tree.io.flush_i := false.B
-  i_rr_arb_tree.io.rr_i    := 0.U
-  i_rr_arb_tree.io.req_i   := rd_req_masked
-  io.rd_ack_o := i_rr_arb_tree.io.gnt_o.asUInt
+  i_rr_arb_tree.io.rr_i    := VecInit(Seq.fill(log2Ceil(NumPorts))(false.B))
+  i_rr_arb_tree.io.req_i   := rd_req_masked.asUInt
+  io.rd_ack_o := i_rr_arb_tree.io.gnt_o
   i_rr_arb_tree.io.data_i  := wire_zero
   i_rr_arb_tree.io.gnt_i   := ~io.wr_cl_vld_i
   rd_req := i_rr_arb_tree.io.req_o
