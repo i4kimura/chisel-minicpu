@@ -35,8 +35,8 @@ class wt_dcache_missunit (
     val miss_rtrn_id_o = Output(UInt(CACHE_ID_WIDTH.W))
 
     // from writebuffer
-    val tx_paddr_i = Input (Vec(DCACHE_MAX_TX, UInt(64.W)))   // used to check for address collisions with read operations
-    val tx_vld_i   = Input (Vec(DCACHE_MAX_TX, Bool()))       // used to check for address collisions with read operations
+    // used to check for address collisions with read operations
+    val tx_paddr_if = Flipped(Vec(DCACHE_MAX_TX, ValidIO(UInt(64.W))))
 
     // write interface to cache memory
     val wr_cl_if = new dcache_write_if()
@@ -181,7 +181,7 @@ class wt_dcache_missunit (
   // read collides with inflight TX
   var tx_rdwr_collision = WireInit(false.B)
   for(k <- 0 until DCACHE_MAX_TX) {
-    tx_rdwr_collision = tx_rdwr_collision | (io.miss_if(miss_port_idx).paddr(63, DCACHE_OFFSET_WIDTH) === io.tx_paddr_i(k)(63, DCACHE_OFFSET_WIDTH)) && io.tx_vld_i(k)
+    tx_rdwr_collision = tx_rdwr_collision | ((io.miss_if(miss_port_idx).paddr(63, DCACHE_OFFSET_WIDTH) === io.tx_paddr_if(k).bits(63, DCACHE_OFFSET_WIDTH)) && io.tx_paddr_if(k).valid)
   }
 
   ///////////////////////////////////////////////////////

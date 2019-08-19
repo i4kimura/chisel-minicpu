@@ -76,8 +76,9 @@ class wt_dcache_wbuffer (
 
     // to forwarding logic and miss unit
     val wbuffer_data_o = Output(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
-    val tx_paddr_o = Output(Vec(DCACHE_MAX_TX, UInt(64.W)))           // used to check for address collisions with read operations
-    val tx_vld_o   = Output(Vec(DCACHE_MAX_TX, Bool()))
+
+    // used to check for address collisions with read operations
+    val tx_paddr_if = Vec(DCACHE_MAX_TX, ValidIO(UInt(64.W)))
   })
 
   val tx_stat_d      = Wire(Vec(DCACHE_MAX_TX, new tx_stat_t()))
@@ -149,8 +150,8 @@ class wt_dcache_wbuffer (
   io.wbuffer_data_o  := wbuffer_q
 
   for (k <- 0 until DCACHE_MAX_TX) { // begin : gen_tx_vld
-    io.tx_vld_o(k)   := tx_stat_q(k).vld
-    io.tx_paddr_o(k) := wbuffer_q(tx_stat_q(k).ptr).wtag<<3
+    io.tx_paddr_if(k).valid := tx_stat_q(k).vld
+    io.tx_paddr_if(k).bits  := wbuffer_q(tx_stat_q(k).ptr).wtag<<3
   }
 
   ///////////////////////////////////////////////////////
@@ -232,13 +233,13 @@ class wt_dcache_wbuffer (
     tx_stat_d(tx_id).be  := tx_be
   }
 
-  free_tx_slots := io.tx_vld_o.map(x => ~x).foldLeft(false.B)(_|_)
+  free_tx_slots := io.tx_paddr_if.map(x => x.valid).foldLeft(false.B)(_|_)
 
   // next word to lookup in the cache
   val i_tx_id_rr = Module(new rr_arb_tree(UInt(1.W), DCACHE_MAX_TX, false, false, true))
   i_tx_id_rr.io.flush_i := false.B
   i_tx_id_rr.io.rr_i    := VecInit(Seq.fill(log2Ceil(DCACHE_MAX_TX))(false.B))
-  i_tx_id_rr.io.req_i   := io.tx_vld_o.map(x => ~x)
+  i_tx_id_rr.io.req_i   := io.tx_paddr_if.map(x => ~x.valid)
   // i_tx_id_rr.io.gnt_o   :=
   i_tx_id_rr.io.data_i  := VecInit(Seq.fill(DCACHE_MAX_TX)(0.U(1.W)))
   i_tx_id_rr.io.gnt_i   := dirty_rd_en

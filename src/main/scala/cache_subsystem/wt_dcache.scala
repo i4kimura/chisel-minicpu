@@ -58,8 +58,9 @@ class wt_dcache (
   val rd_hit_oh   = Wire(Vec(DCACHE_SET_ASSOC, Bool()))
 
   // miss unit <-> wbuffer
-  val tx_paddr = Wire(Vec(DCACHE_MAX_TX, UInt(64.W)))
-  val tx_vld   = Wire(Vec(DCACHE_MAX_TX, Bool()))
+  val w_tx_paddr_if = Wire(Vec(DCACHE_MAX_TX, ValidIO(UInt(64.W))))
+  // val tx_paddr = Wire(Vec(DCACHE_MAX_TX, UInt(64.W)))
+  // val tx_vld   = Wire(Vec(DCACHE_MAX_TX, Bool()))
 
   // wbuffer <-> memory
   val wbuffer_data = Wire(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
@@ -84,8 +85,8 @@ class wt_dcache (
   miss_rtrn_id := i_wt_dcache_missunit.io.miss_rtrn_id_o
 
   // from writebuffer
-  i_wt_dcache_missunit.io.tx_paddr_i         := tx_paddr
-  i_wt_dcache_missunit.io.tx_vld_i           := tx_vld
+  i_wt_dcache_missunit.io.tx_paddr_if <> w_tx_paddr_if
+
   // cache memory interface
   i_wt_dcache_missunit.io.wr_cl_if <> w_wr_cl_if
 
@@ -153,8 +154,7 @@ class wt_dcache (
 
   // write buffer forwarding
   wbuffer_data := i_wt_dcache_wbuffer.io.wbuffer_data_o
-  tx_paddr     := i_wt_dcache_wbuffer.io.tx_paddr_o
-  tx_vld       := i_wt_dcache_wbuffer.io.tx_vld_o
+  i_wt_dcache_wbuffer.io.tx_paddr_if <> w_tx_paddr_if
 
   ///////////////////////////////////////////////////////
   // memory arrays, arbitration and tag comparison
