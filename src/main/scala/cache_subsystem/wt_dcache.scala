@@ -75,13 +75,8 @@ class wt_dcache (
   val miss_rtrn_id  = Wire(UInt(CACHE_ID_WIDTH.W))
 
   // memory <-> read controllers/miss unit
-  val rd_prio     = Wire(Vec(NumPorts, Bool()))
-  val rd_tag_only = Wire(Vec(NumPorts, Bool()))
-  val rd_req      = Wire(Vec(NumPorts, Bool()))
-  val rd_ack      = Wire(Vec(NumPorts, Bool()))
-  val rd_tag      = Wire(Vec(NumPorts, UInt(DCACHE_TAG_WIDTH.W)))
-  val rd_idx      = Wire(Vec(NumPorts, UInt(DCACHE_CL_IDX_WIDTH.W)))
-  val rd_off      = Wire(Vec(NumPorts, UInt(DCACHE_OFFSET_WIDTH.W)))
+  val w_rd_if = Wire(Vec(NumPorts, new dcache_rd_if()))
+
   val rd_data     = Wire(UInt(64.W))
   val rd_vld_bits = Wire(Vec(DCACHE_SET_ASSOC, Bool()))
   val rd_hit_oh   = Wire(Vec(DCACHE_SET_ASSOC, Bool()))
@@ -148,9 +143,6 @@ class wt_dcache (
 
   // note: last read port is used by the write buffer
   for (k <- 0 until NumPorts-1) { // : gen_rd_ports
-    // set these to high prio ports
-    rd_prio(k) := true.B
-
     val i_wt_dcache_ctrl = Module(new wt_dcache_ctrl (RdAmoTxId, ArianeCfg))
     i_wt_dcache_ctrl.io.cache_en_i      := cache_en
     // reqs from core
@@ -170,13 +162,10 @@ class wt_dcache (
     i_wt_dcache_ctrl.io.miss_rtrn_vld_i := miss_rtrn_vld (k)
     // used to detect readout mux collisions
     i_wt_dcache_ctrl.io.wr_cl_vld_i     := wr_cl_vld
+
     // cache mem interface
-    rd_tag(k)      := i_wt_dcache_ctrl.io.rd_tag_o
-    rd_idx(k)      := i_wt_dcache_ctrl.io.rd_idx_o
-    rd_off(k)      := i_wt_dcache_ctrl.io.rd_off_o
-    rd_req(k)      := i_wt_dcache_ctrl.io.rd_req_o
-    rd_tag_only(k) := i_wt_dcache_ctrl.io.rd_tag_only_o
-    i_wt_dcache_ctrl.io.rd_ack_i        := rd_ack(k)
+    i_wt_dcache_ctrl.io.rd_if <> w_rd_if(k)
+
     i_wt_dcache_ctrl.io.rd_data_i       := rd_data
     i_wt_dcache_ctrl.io.rd_vld_bits_i   := rd_vld_bits
     i_wt_dcache_ctrl.io.rd_hit_oh_i     := rd_hit_oh
@@ -184,9 +173,6 @@ class wt_dcache (
   ///////////////////////////////////////////////////////
   // store unit controller
   ///////////////////////////////////////////////////////
-
-  // set read port to low priority
-  rd_prio(2) := false.B
 
   val i_wt_dcache_wbuffer = Module(new wt_dcache_wbuffer (ArianeCfg))
   io.wbuffer_empty_o := i_wt_dcache_wbuffer.io.empty_o
@@ -208,13 +194,10 @@ class wt_dcache (
   miss_id(2)       := i_wt_dcache_wbuffer.io.miss_id_o
   i_wt_dcache_wbuffer.io.miss_rtrn_vld_i := miss_rtrn_vld(2)
   i_wt_dcache_wbuffer.io.miss_rtrn_id_i  := miss_rtrn_id
-    // cache read interface
-  rd_tag(2)      := i_wt_dcache_wbuffer.io.rd_tag_o
-  rd_idx(2)      := i_wt_dcache_wbuffer.io.rd_idx_o
-  rd_off(2)      := i_wt_dcache_wbuffer.io.rd_off_o
-  rd_req(2)      := i_wt_dcache_wbuffer.io.rd_req_o
-  rd_tag_only(2) := i_wt_dcache_wbuffer.io.rd_tag_only_o
-  i_wt_dcache_wbuffer.io.rd_ack_i        := rd_ack(2)
+
+  // cache read interface
+  i_wt_dcache_wbuffer.io.rd_if <> w_rd_if(2)
+
   i_wt_dcache_wbuffer.io.rd_data_i       := rd_data
   i_wt_dcache_wbuffer.io.rd_vld_bits_i   := rd_vld_bits
   i_wt_dcache_wbuffer.io.rd_hit_oh_i     := rd_hit_oh
@@ -239,13 +222,8 @@ class wt_dcache (
 
   val i_wt_dcache_mem = Module(new wt_dcache_mem (ArianeCfg.Axi64BitCompliant, NumPorts))
   // read ports
-  i_wt_dcache_mem.io.rd_prio_i         := rd_prio
-  i_wt_dcache_mem.io.rd_tag_i          := rd_tag
-  i_wt_dcache_mem.io.rd_idx_i          := rd_idx
-  i_wt_dcache_mem.io.rd_off_i          := rd_off
-  i_wt_dcache_mem.io.rd_req_i          := rd_req
-  i_wt_dcache_mem.io.rd_tag_only_i     := rd_tag_only
-  rd_ack      := i_wt_dcache_mem.io.rd_ack_o
+  i_wt_dcache_mem.io.rd_if <> w_rd_if
+
   rd_vld_bits := i_wt_dcache_mem.io.rd_vld_bits_o
   rd_hit_oh   := i_wt_dcache_mem.io.rd_hit_oh_o
   rd_data     := i_wt_dcache_mem.io.rd_data_o

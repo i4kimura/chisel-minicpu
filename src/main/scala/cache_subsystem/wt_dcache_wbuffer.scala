@@ -69,13 +69,10 @@ class wt_dcache_wbuffer (
                                                             // write responses from memory
     val miss_rtrn_vld_i = Input(Bool())
     val miss_rtrn_id_i  = Input(UInt(CACHE_ID_WIDTH.W))     // transaction ID to clear
-                                                            // cache read interface
-    val rd_tag_o      = Output(UInt(DCACHE_TAG_WIDTH.W   )) // tag in - comes one cycle later
-    val rd_idx_o      = Output(UInt(DCACHE_CL_IDX_WIDTH.W))
-    val rd_off_o      = Output(UInt(DCACHE_OFFSET_WIDTH.W))
-    val rd_req_o      = Output(Bool())                      // read the word at offset off_i[:3] in all ways
-    val rd_tag_only_o = Output(Bool())                      // set to 1 here as we do not have to read the data arrays
-    val rd_ack_i      = Input(Bool())
+
+    // cache read interface
+    val rd_if = new dcache_rd_if()
+
     val rd_data_i     = Input(UInt(64.W))                   // unused
     val rd_vld_bits_i = Input(Vec(DCACHE_SET_ASSOC, Bool()))     // unused
     val rd_hit_oh_i   = Input(Vec(DCACHE_SET_ASSOC, Bool()))
@@ -269,13 +266,16 @@ class wt_dcache_wbuffer (
   rd_tag_d   := rd_paddr >> DCACHE_INDEX_WIDTH
 
   // trigger TAG readout in cache
-  io.rd_tag_only_o := true.B
   rd_paddr         := wbuffer_check_mux.wtag << 3
-  io.rd_req_o      := tocheck.foldLeft(false.B)(_|_)
-  io.rd_tag_o      := rd_tag_q;//delay by one cycle
-  io.rd_idx_o      := rd_paddr(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH)
-  io.rd_off_o      := rd_paddr(DCACHE_OFFSET_WIDTH-1, 0)
-  check_en_d       := io.rd_req_o & io.rd_ack_i
+
+  io.rd_if.rd_tag_only := true.B
+  io.rd_if.rd_req      := tocheck.foldLeft(false.B)(_|_)
+  io.rd_if.rd_tag      := rd_tag_q              //delay by one cycle
+  io.rd_if.rd_idx      := rd_paddr(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH)
+  io.rd_if.rd_off      := rd_paddr(DCACHE_OFFSET_WIDTH-1, 0)
+  io.rd_if.rd_prio     := false.B
+
+  check_en_d       := io.rd_if.rd_req & io.rd_if.rd_ack
 
   // cache update port
   rtrn_ptr       := tx_stat_q(rtrn_id).ptr

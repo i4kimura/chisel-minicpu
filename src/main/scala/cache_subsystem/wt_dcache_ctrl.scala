@@ -30,13 +30,10 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     val miss_rtrn_vld_i = Input(Bool())                         // signals that the miss has been served, asserted in the same cycle as when the data returns from memory
                                                                 // used to detect readout mux collisions
     val wr_cl_vld_i   = Input(Bool())
+
     // cache memory interface
-    val rd_tag_o      = Output(UInt(DCACHE_TAG_WIDTH.W))       // tag in - comes one cycle later
-    val rd_idx_o      = Output(UInt(DCACHE_CL_IDX_WIDTH.W))
-    val rd_off_o      = Output(UInt(DCACHE_OFFSET_WIDTH.W))
-    val rd_req_o      = Output(Bool())                   // read the word at offset off_i[:3] in all ways
-    val rd_tag_only_o = Output(Bool())                   // set to zero here
-    val rd_ack_i      = Input(Bool())
+    val rd_if         = new dcache_rd_if()
+
     val rd_data_i     = Input(UInt(64.W))
     val rd_vld_bits_i = Input(Vec(DCACHE_SET_ASSOC, Bool()))
     val rd_hit_oh_i   = Input(Vec(DCACHE_SET_ASSOC, Bool()))
@@ -74,9 +71,10 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
   address_idx_d := Mux(io.req_port_o.data_gnt, io.req_port_i.address_index(DCACHE_INDEX_WIDTH-1,DCACHE_OFFSET_WIDTH), address_idx_q)
   address_off_d := Mux(io.req_port_o.data_gnt, io.req_port_i.address_index(DCACHE_OFFSET_WIDTH-1,0)                 , address_off_q)
   data_size_d   := Mux(io.req_port_o.data_gnt, io.req_port_i.data_size                                              , data_size_q  )
-  io.rd_tag_o   := address_tag_d
-  io.rd_idx_o   := address_idx_d
-  io.rd_off_o   := address_off_d
+  io.rd_if.rd_tag  := address_tag_d
+  io.rd_if.rd_idx  := address_idx_d
+  io.rd_if.rd_off  := address_off_d
+  io.rd_if.rd_prio := true.B
 
   io.req_port_o.data_rdata := io.rd_data_i
 
@@ -91,18 +89,18 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
   io.miss_we_o     := 0.U
   io.miss_wdata_o  := 0.U
   io.miss_id_o     := RdTxId.asUInt
-  rd_req_d         := io.rd_req_o
-  rd_ack_d         := io.rd_ack_i
-  io.rd_tag_only_o := 0.U
+  rd_req_d         := io.rd_if.rd_req
+  rd_ack_d         := io.rd_if.rd_ack
+  io.rd_if.rd_tag_only := false.B
 
 ///////////////////////////////////////////////////////
 // main control logic
 ///////////////////////////////////////////////////////
 
   // default assignment
-  state_d                := state_q
-  save_tag               := false.B
-  io.rd_req_o               := false.B
+  state_d                   := state_q
+  save_tag                  := false.B
+  io.rd_if.rd_req           := false.B
   io.miss_req_o             := false.B
   io.req_port_o.data_rvalid := false.B
   io.req_port_o.data_gnt    := false.B
@@ -113,8 +111,8 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     // wait for an incoming request
     is (idle_s) {
       when (io.req_port_i.data_req) {
-        io.rd_req_o := true.B
-        when (io.rd_ack_i) {
+        io.rd_if.rd_req := true.B
+        when (io.rd_if.rd_ack) {
           state_d := read_s
           io.req_port_o.data_gnt := true.B
         }
@@ -128,7 +126,7 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     // the request
     is (read_s, replayread_s) {
       // speculatively request cache line
-      io.rd_req_o := true.B
+      io.rd_if.rd_req := true.B
 
       // kill -> go back to IDLE
       when (io.req_port_i.kill_req) {
@@ -143,7 +141,7 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
           state_d := idle_s
           io.req_port_o.data_rvalid := true.B
           // we can handle another request
-          when (io.rd_ack_i && io.req_port_i.data_req) {
+          when (io.rd_if.rd_ack && io.req_port_i.data_req) {
             state_d := read_s
             io.req_port_o.data_gnt := true.B
           }
@@ -190,11 +188,11 @@ class wt_dcache_ctrl(RdTxId:Int = 1,
     //////////////////////////////////
     // replay read request
     is (replayreq_s) {
-      io.rd_req_o := true.B
+      io.rd_if.rd_req := true.B
       when (io.req_port_i.kill_req) {
         io.req_port_o.data_rvalid := true.B
         state_d := idle_s
-      } .elsewhen (io.rd_ack_i) {
+      } .elsewhen (io.rd_if.rd_ack) {
         state_d := replayread_s
       }
     }

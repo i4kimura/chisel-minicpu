@@ -335,4 +335,15 @@ object wt_cache_pkg
     }
     return out.asUInt
   }
+
+  // Interface
+  class dcache_rd_if extends Bundle {
+    val rd_tag      = Output(UInt(DCACHE_TAG_WIDTH.W   ))  // tag in - comes one cycle later
+    val rd_idx      = Output(UInt(DCACHE_CL_IDX_WIDTH.W))
+    val rd_off      = Output(UInt(DCACHE_OFFSET_WIDTH.W))
+    val rd_req      = Output(Bool())                       // read the word at offset off_i[:3] in all ways
+    val rd_tag_only = Output(Bool())                       // only do a tag/valid lookup, no access to data arrays
+    val rd_prio     = Output(Bool())                       // 0: low prio, 1: high prio
+    val rd_ack      = Input (Bool())
+  }
 }

@@ -13,13 +13,8 @@ class wt_dcache_mem
     extends Module {
   val io = IO(new Bundle {
     // ports
-    val rd_tag_i      = Input (Vec(NumPorts, UInt(DCACHE_TAG_WIDTH.W   )))              // tag in - comes one cycle later
-    val rd_idx_i      = Input (Vec(NumPorts, UInt(DCACHE_CL_IDX_WIDTH.W)))
-    val rd_off_i      = Input (Vec(NumPorts, UInt(DCACHE_OFFSET_WIDTH.W)))
-    val rd_req_i      = Input (Vec(NumPorts, Bool()))                                    // read the word at offset off_i[:3] in all ways
-    val rd_tag_only_i = Input (Vec(NumPorts, Bool()))                                    // only do a tag/valid lookup, no access to data arrays
-    val rd_prio_i     = Input (Vec(NumPorts, Bool()))                                    // 0: low prio, 1: high prio
-    val rd_ack_o      = Output(Vec(NumPorts, Bool()))
+    val rd_if = Flipped(Vec(NumPorts, new dcache_rd_if()))
+
     val rd_vld_bits_o = Output(Vec(DCACHE_SET_ASSOC, Bool()))
     val rd_hit_oh_o   = Output(Vec(DCACHE_SET_ASSOC, Bool()))
     val rd_data_o     = Output(UInt(64.W))
@@ -106,33 +101,34 @@ class wt_dcache_mem
   }
 
   vld_wdata  := io.wr_vld_bits_i;
-  vld_addr   := Mux(io.wr_cl_vld_i, io.wr_cl_idx_i, io.rd_idx_i(vld_sel_d))
-  rd_tag     := io.rd_tag_i(vld_sel_q)                               // delayed by one cycle
-  bank_off_d := Mux(io.wr_cl_vld_i, io.wr_cl_off_i, io.rd_off_i(vld_sel_d))
-  bank_idx_d := Mux(io.wr_cl_vld_i, io.wr_cl_idx_i, io.rd_idx_i(vld_sel_d))
+  vld_addr   := Mux(io.wr_cl_vld_i, io.wr_cl_idx_i, io.rd_if(vld_sel_d).rd_idx)
+  rd_tag     := io.rd_if(vld_sel_q).rd_tag                               // delayed by one cycle
+  bank_off_d := Mux(io.wr_cl_vld_i, io.wr_cl_off_i, io.rd_if(vld_sel_d).rd_off)
+  bank_idx_d := Mux(io.wr_cl_vld_i, io.wr_cl_idx_i, io.rd_if(vld_sel_d).rd_idx)
   vld_req    := Mux(io.wr_cl_vld_i, io.wr_cl_we_i , Mux(rd_acked, true.B, false.B))
 
   // priority masking
   // disable low prio requests when any of the high prio reqs is present
-  for(i <- 0 until NumPorts) {
-    rd_req_prio(i)   := io.rd_req_i(i) & io.rd_prio_i(i)
-    rd_req_masked(i) := Mux(rd_req_prio.asUInt.orR, rd_req_prio(i), io.rd_req_i(i))
-  }
   val rd_req = Wire(Bool())
-  val wire_zero = Wire(Vec(NumPorts, UInt(1.W)))
-  for (i <- 0 until NumPorts) { wire_zero(i) := 0.U }
   val i_rr_arb_tree = Module(new rr_arb_tree(UInt(1.W), NumPorts, false, false, false))
+
+  for(i <- 0 until NumPorts) {
+    rd_req_prio(i)   := io.rd_if(i).rd_req & io.rd_if(i).rd_prio
+    rd_req_masked(i) := Mux(rd_req_prio.asUInt.orR, rd_req_prio(i), io.rd_if(i).rd_req)
+    io.rd_if(i).rd_ack := i_rr_arb_tree.io.gnt_o(i)
+  }
+
   i_rr_arb_tree.io.flush_i := false.B
   i_rr_arb_tree.io.rr_i    := VecInit(Seq.fill(log2Ceil(NumPorts))(false.B))
   i_rr_arb_tree.io.req_i   := rd_req_masked
-  io.rd_ack_o := i_rr_arb_tree.io.gnt_o
-  i_rr_arb_tree.io.data_i  := wire_zero
+  i_rr_arb_tree.io.data_i  := VecInit(Seq.fill(NumPorts)(0.U(1.W)))
   i_rr_arb_tree.io.gnt_i   := ~io.wr_cl_vld_i
-  rd_req := i_rr_arb_tree.io.req_o
-  // i_rr_arb_tree.io.data_o  :=
+  rd_req    := i_rr_arb_tree.io.req_o
   vld_sel_d := i_rr_arb_tree.io.idx_o
 
-  rd_acked := rd_req & ~io.wr_cl_vld_i;
+  rd_acked  := rd_req & ~io.wr_cl_vld_i;
+
+
 
   vld_we      := io.wr_cl_vld_i
   bank_req    := 0.U
@@ -142,8 +138,8 @@ class wt_dcache_mem
     bank_idx(i) := io.wr_idx_i
   }
 
-  for(k <- 0 until NumPorts) {
-    bank_collision(k) := (io.rd_off_i(k)(DCACHE_OFFSET_WIDTH-1,3) === io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3))
+  for(i <- 0 until NumPorts) {
+    bank_collision(i) := (io.rd_if(i).rd_off(DCACHE_OFFSET_WIDTH-1,3) === io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3))
   }
 
   when (io.wr_cl_vld_i && io.wr_cl_we_i.orR) {
@@ -152,13 +148,13 @@ class wt_dcache_mem
     for(i <- 0 until DCACHE_NUM_BANKS) { bank_idx(i) := io.wr_cl_idx_i }
   } .otherwise {
     when (rd_acked) {
-      when(!io.rd_tag_only_i(vld_sel_d)) {
-        bank_req                                                   := dcache_cl_bin2oh(io.rd_off_i(vld_sel_d)(DCACHE_OFFSET_WIDTH-1,3));
-        bank_idx(io.rd_off_i(vld_sel_d)(DCACHE_OFFSET_WIDTH-1, 3)) := io.rd_idx_i(vld_sel_d)
+      when(!io.rd_if(vld_sel_d).rd_tag_only) {
+        bank_req                                                       := dcache_cl_bin2oh(io.rd_if(vld_sel_d).rd_off(DCACHE_OFFSET_WIDTH-1,3));
+        bank_idx(io.rd_if(vld_sel_d).rd_off(DCACHE_OFFSET_WIDTH-1, 3)) := io.rd_if(vld_sel_d).rd_idx
       }
     }
     when (io.wr_req_i.asUInt.orR) {
-      when (io.rd_tag_only_i(vld_sel_d) || !(io.rd_ack_o(vld_sel_d) && bank_collision(vld_sel_d))) {
+      when (io.rd_if(vld_sel_d).rd_tag_only || !(io.rd_if(vld_sel_d).rd_ack && bank_collision(vld_sel_d))) {
         io.wr_ack_o := true.B
         // bank_req |= dcache_cl_bin2oh(io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3));
         bank_req := dcache_cl_bin2oh(io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3));
