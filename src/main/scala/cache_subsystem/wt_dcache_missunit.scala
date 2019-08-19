@@ -43,11 +43,8 @@ class wt_dcache_missunit (
     val wr_vld_bits_o   = Output(UInt(DCACHE_SET_ASSOC.W   ))
 
     // memory interface
-    val mem_rtrn_vld_i = Input (Bool())
-    val mem_rtrn_i     = Input (new dcache_rtrn_t())
-    val mem_data_req_o = Output(Bool())
-    val mem_data_ack_i = Input (Bool())
-    val mem_data_o = Output(new dcache_req_t())
+    val mem_rtrn_if = Flipped(ValidIO(new dcache_rtrn_t()))
+    val mem_data_if = DecoupledIO(new dcache_req_t())
   })
 
   // controller FSM
@@ -135,7 +132,7 @@ class wt_dcache_missunit (
 
   io.miss_if.map(x => x.ack := false.B)
   when (!amo_sel) {
-    io.miss_if(miss_port_idx).ack := io.mem_data_ack_i & io.mem_data_req_o
+    io.miss_if(miss_port_idx).ack := io.mem_data_if.ready & io.mem_data_if.valid
   }
 
   ///////////////////////////////////////////////////////
@@ -199,11 +196,11 @@ class wt_dcache_missunit (
   val amo_rtrn_mux_word_w = Wire(UInt(32.W))
   // note: openpiton returns a full cacheline!
   if (Axi64BitCompliant) { // begin : gen_axi_rtrn_mux
-    amo_rtrn_mux := io.mem_rtrn_i.data(63, 0)
+    amo_rtrn_mux := io.mem_rtrn_if.bits.data(63, 0)
   } else {
-    val mem_rtrn_vec_w = Wire(Vec(io.mem_rtrn_i.data.getWidth / 64, UInt(64.W)))
-    for(i <- 0 until io.mem_rtrn_i.data.getWidth / 64) {
-      mem_rtrn_vec_w(i) := io.mem_rtrn_i.data(64*i + 63, 64*i)
+    val mem_rtrn_vec_w = Wire(Vec(io.mem_rtrn_if.bits.data.getWidth / 64, UInt(64.W)))
+    for(i <- 0 until io.mem_rtrn_if.bits.data.getWidth / 64) {
+      mem_rtrn_vec_w(i) := io.mem_rtrn_if.bits.data(64*i + 63, 64*i)
     }
     amo_rtrn_mux := mem_rtrn_vec_w(io.amo_req_i.operand_a(DCACHE_OFFSET_WIDTH-1, 3))
   }
@@ -221,15 +218,15 @@ class wt_dcache_missunit (
   amo_req_d := io.amo_req_i.req
 
   // outgoing memory requests (AMOs are always uncached)
-  io.mem_data_o.tid    := Mux(amo_sel, AmoTxId.U          , io.miss_if(miss_port_idx).id)
-  io.mem_data_o.nc     := Mux(amo_sel, true.B             , io.miss_if(miss_port_idx).nc)
-  io.mem_data_o.way    := Mux(amo_sel, 0.U                , repl_way)
-  io.mem_data_o.data   := Mux(amo_sel, amo_data           , io.miss_if(miss_port_idx).wdata)
-  io.mem_data_o.size   := Mux(amo_sel, io.amo_req_i.size  , io.miss_if(miss_port_idx).size)
-  io.mem_data_o.amo_op := Mux(amo_sel, io.amo_req_i.amo_op, AMO_NONE)
+  io.mem_data_if.bits.tid    := Mux(amo_sel, AmoTxId.U          , io.miss_if(miss_port_idx).id)
+  io.mem_data_if.bits.nc     := Mux(amo_sel, true.B             , io.miss_if(miss_port_idx).nc)
+  io.mem_data_if.bits.way    := Mux(amo_sel, 0.U                , repl_way)
+  io.mem_data_if.bits.data   := Mux(amo_sel, amo_data           , io.miss_if(miss_port_idx).wdata)
+  io.mem_data_if.bits.size   := Mux(amo_sel, io.amo_req_i.size  , io.miss_if(miss_port_idx).size)
+  io.mem_data_if.bits.amo_op := Mux(amo_sel, io.amo_req_i.amo_op, AMO_NONE)
 
   tmp_paddr            := Mux(amo_sel, io.amo_req_i.operand_a, io.miss_if(miss_port_idx).paddr)
-  io.mem_data_o.paddr  := paddrSizeAlign(tmp_paddr, io.mem_data_o.size)
+  io.mem_data_if.bits.paddr  := paddrSizeAlign(tmp_paddr, io.mem_data_if.bits.size)
 
   ///////////////////////////////////////////////////////
   // back-off mechanism for LR/SC completion guarantee
@@ -251,7 +248,7 @@ class wt_dcache_missunit (
   val store_sent = Wire(Bool())
   val stores_inflight_d = Wire(UInt(log2Ceil(DCACHE_MAX_TX + 1).W))
   val stores_inflight_q = RegInit(0.U(log2Ceil(DCACHE_MAX_TX + 1).W))
-  store_sent := io.mem_data_req_o & io.mem_data_ack_i & (io.mem_data_o.rtype === DCACHE_STORE_REQ)
+  store_sent := io.mem_data_if.valid & io.mem_data_if.ready & (io.mem_data_if.bits.rtype === DCACHE_STORE_REQ)
 
   stores_inflight_d := Mux(store_ack && store_sent, stores_inflight_q,
                        Mux(store_ack              , stores_inflight_q - 1.U,
@@ -267,8 +264,8 @@ class wt_dcache_missunit (
   sc_fail            := false.B
   sc_pass            := false.B
   io.miss_if.map(x => x.rtrn_vld := false.B)
-  when (io.mem_rtrn_vld_i) {
-    switch (io.mem_rtrn_i.rtype) {
+  when (io.mem_rtrn_if.valid) {
+    switch (io.mem_rtrn_if.bits.rtype) {
       is (dcache_load_ack_s) {
         when (mshr_vld_q) {
           load_ack := true.B
@@ -296,8 +293,8 @@ class wt_dcache_missunit (
         }
       }
       is (dcache_inv_req_s) {
-        inv_vld     := io.mem_rtrn_i.inv.vld | io.mem_rtrn_i.inv.all
-        inv_vld_all := io.mem_rtrn_i.inv.all
+        inv_vld     := io.mem_rtrn_if.bits.inv.vld | io.mem_rtrn_if.bits.inv.all
+        inv_vld_all := io.mem_rtrn_if.bits.inv.all
       }
       // TODO:
         // DCACHE_INT_REQ: {
@@ -306,7 +303,7 @@ class wt_dcache_missunit (
   }
 
   // to write buffer
-  io.miss_rtrn_id_o := io.mem_rtrn_i.tid
+  io.miss_rtrn_id_o := io.mem_rtrn_if.bits.tid
 
 ///////////////////////////////////////////////////////
 // writes to cache memory
@@ -318,16 +315,16 @@ class wt_dcache_missunit (
 
   io.wr_cl_if.we     := Mux(flush_en      , true.B,
                         Mux(inv_vld_all   , true.B,
-                        Mux(inv_vld       , dcache_way_bin2oh(io.mem_rtrn_i.inv.way),
+                        Mux(inv_vld       , dcache_way_bin2oh(io.mem_rtrn_if.bits.inv.way),
                         Mux(cl_write_en   , dcache_way_bin2oh(mshr_q.repl_way) , false.B))))
 
   io.wr_cl_if.idx     := Mux(flush_en, cnt_q,
-                         Mux(inv_vld,  io.mem_rtrn_i.inv.idx(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH),
+                         Mux(inv_vld,  io.mem_rtrn_if.bits.inv.idx(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH),
                                       mshr_q.paddr(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH)))
 
   io.wr_cl_if.tag     := mshr_q.paddr(DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1, DCACHE_INDEX_WIDTH)
   io.wr_cl_if.off     := mshr_q.paddr(DCACHE_OFFSET_WIDTH-1, 0)
-  io.wr_cl_if.data    := io.mem_rtrn_i.data
+  io.wr_cl_if.data    := io.mem_rtrn_if.bits.data
   io.wr_cl_if.data_be := Mux(cl_write_en, true.B, false.B)   // we only write complete cachelines into the memory
 
   io.wr_vld_bits_o   := Mux(flush_en   , 0.U,
@@ -345,8 +342,8 @@ class wt_dcache_missunit (
   state_d          := state_q
 
   io.flush_ack_o      := false.B
-  io.mem_data_o.rtype := DCACHE_LOAD_REQ
-  io.mem_data_req_o   := false.B
+  io.mem_data_if.bits.rtype := DCACHE_LOAD_REQ
+  io.mem_data_if.valid   := false.B
   io.amo_resp_o.ack   := false.B
   io.miss_if.map(x => x.replay := false.B)
 
@@ -384,9 +381,9 @@ class wt_dcache_missunit (
         when (miss_is_write) {
           // stall in case this write collides with the MSHR address
           when (!mshr_rdwr_collision) {
-            io.mem_data_req_o            := true.B
-            io.mem_data_o.rtype          := DCACHE_STORE_REQ
-            when (!io.mem_data_ack_i) {
+            io.mem_data_if.valid            := true.B
+            io.mem_data_if.bits.rtype          := DCACHE_STORE_REQ
+            when (!io.mem_data_if.ready) {
               state_d := store_wait_s
             }
           }
@@ -399,11 +396,11 @@ class wt_dcache_missunit (
             io.miss_if(miss_port_idx).replay := true.B
             // stall in case this CL address overlaps with a write TX that is in flight
           } .elsewhen (!tx_rdwr_collision) {
-            io.mem_data_req_o         := true.B
-            io.mem_data_o.rtype       := DCACHE_LOAD_REQ
-            update_lfsr               := all_ways_valid & io.mem_data_ack_i;// need to evict a random way
-            mshr_allocate             := io.mem_data_ack_i
-            when (!io.mem_data_ack_i) {
+            io.mem_data_if.valid         := true.B
+            io.mem_data_if.bits.rtype       := DCACHE_LOAD_REQ
+            update_lfsr               := all_ways_valid & io.mem_data_if.ready;// need to evict a random way
+            mshr_allocate             := io.mem_data_if.ready
+            when (!io.mem_data_if.ready) {
               state_d := load_wait_s
             }
           }
@@ -414,9 +411,9 @@ class wt_dcache_missunit (
     // wait until this request is acked
     is (store_wait_s) {
       lock_reqs                 := true.B
-      io.mem_data_req_o            := true.B
-      io.mem_data_o.rtype          := DCACHE_STORE_REQ
-      when (io.mem_data_ack_i) {
+      io.mem_data_if.valid            := true.B
+      io.mem_data_if.bits.rtype          := DCACHE_STORE_REQ
+      when (io.mem_data_if.ready) {
         state_d := idle_s
       }
     }
@@ -424,9 +421,9 @@ class wt_dcache_missunit (
     // wait until this request is acked
     is(load_wait_s) {
       lock_reqs                 := true.B
-      io.mem_data_req_o            := true.B
-      io.mem_data_o.rtype          := DCACHE_LOAD_REQ
-      when (io.mem_data_ack_i) {
+      io.mem_data_if.valid            := true.B
+      io.mem_data_if.bits.rtype          := DCACHE_LOAD_REQ
+      when (io.mem_data_if.ready) {
         update_lfsr   := all_ways_valid;// need to evict a random way
         mshr_allocate := true.B;
         state_d       := idle_s
@@ -439,8 +436,8 @@ class wt_dcache_missunit (
       mask_reads := true.B
       // these are writes, check whether they collide with MSHR
       when (miss_req_masked_d.asUInt.orR && !mshr_rdwr_collision) {
-        io.mem_data_req_o            := true.B
-        io.mem_data_o.rtype          := DCACHE_STORE_REQ
+        io.mem_data_if.valid            := true.B
+        io.mem_data_if.bits.rtype          := DCACHE_STORE_REQ
       }
 
       when (io.wbuffer_empty_i && !mshr_vld_q) {
@@ -462,12 +459,12 @@ class wt_dcache_missunit (
     //////////////////////////////////
     // send out amo op request
     is (amo_s) {
-      io.mem_data_o.rtype := DCACHE_ATOMIC_REQ
+      io.mem_data_if.bits.rtype := DCACHE_ATOMIC_REQ
       amo_sel          := true.B
       // if this is an LR, we need to consult the backoff counter
       when ((io.amo_req_i.amo_op =/= AMO_LR) || sc_backoff_over) {
-        io.mem_data_req_o   := true.B
-        when (io.mem_data_ack_i) {
+        io.mem_data_if.valid   := true.B
+        when (io.mem_data_if.ready) {
           state_d := amo_wait_s
         }
       }

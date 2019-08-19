@@ -30,11 +30,8 @@ class wt_dcache (
     val req_ports_i = Input(Vec(3, new dcache_req_i_t()))
     val req_ports_o = Output(Vec(3, new dcache_req_o_t()))
 
-    val mem_rtrn_vld_i = Input(Bool())
-    val mem_rtrn_i     = Input(new dcache_rtrn_t())
-    val mem_data_req_o = Output(Bool())
-    val mem_data_ack_i = Input(Bool())
-    val mem_data_o     = Output(new dcache_req_t())
+    val mem_rtrn_if = Flipped(ValidIO(new dcache_rtrn_t()))
+    val mem_data_if = DecoupledIO(new dcache_req_t())
   })
 
   // LD unit and PTW
@@ -93,12 +90,10 @@ class wt_dcache (
   i_wt_dcache_missunit.io.wr_cl_if <> w_wr_cl_if
 
   wr_vld_bits   := i_wt_dcache_missunit.io.wr_vld_bits_o
+
   // memory interface
-  i_wt_dcache_missunit.io.mem_rtrn_vld_i     := io.mem_rtrn_vld_i
-  i_wt_dcache_missunit.io.mem_rtrn_i         := io.mem_rtrn_i
-  io.mem_data_req_o := i_wt_dcache_missunit.io.mem_data_req_o
-  i_wt_dcache_missunit.io.mem_data_ack_i     := io.mem_data_ack_i
-  io.mem_data_o := i_wt_dcache_missunit.io.mem_data_o
+  i_wt_dcache_missunit.io.mem_rtrn_if <> io.mem_rtrn_if
+  i_wt_dcache_missunit.io.mem_data_if <> io.mem_data_if
 
 
   ///////////////////////////////////////////////////////
@@ -175,14 +170,10 @@ class wt_dcache (
 
   // cacheline write port
   i_wt_dcache_mem.io.wr_cl_if <> w_wr_cl_if
-
   i_wt_dcache_mem.io.wr_vld_bits_i     := wr_vld_bits
 
-  // single word write port
-  i_wt_dcache_mem.io.wr_if <> w_wr_if
-
-  // write buffer forwarding
-  i_wt_dcache_mem.io.wbuffer_data_i    := wbuffer_data
+  i_wt_dcache_mem.io.wr_if <> w_wr_if // single word write port
+  i_wt_dcache_mem.io.wbuffer_data_i := wbuffer_data  // write buffer forwarding
 }
 
 
