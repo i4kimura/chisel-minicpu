@@ -47,12 +47,7 @@ class wt_dcache (
   val w_wr_cl_if = Wire(new dcache_write_if())
   val wr_vld_bits   = Wire(UInt(DCACHE_SET_ASSOC.W))
 
-  val wr_req        = Wire(Vec(DCACHE_SET_ASSOC, Bool()))
-  val wr_ack        = Wire(Bool())
-  val wr_idx        = Wire(UInt(DCACHE_CL_IDX_WIDTH.W))
-  val wr_off        = Wire(UInt(DCACHE_OFFSET_WIDTH.W))
-  val wr_data       = Wire(UInt(64.W))
-  val wr_data_be    = Wire(UInt(8.W))
+  val w_wr_if    = Wire(new dcache_word_wr_if())
 
   // miss unit <-> controllers/wbuffer
   val w_miss_if = Wire(Vec(NumPorts, new dcache_miss_if()))
@@ -154,16 +149,13 @@ class wt_dcache (
   i_wt_dcache_wbuffer.io.rd_data_i       := rd_data
   i_wt_dcache_wbuffer.io.rd_vld_bits_i   := rd_vld_bits
   i_wt_dcache_wbuffer.io.rd_hit_oh_i     := rd_hit_oh
-     // incoming invalidations/cache refills
+  // incoming invalidations/cache refills
   i_wt_dcache_wbuffer.io.wr_cl_vld_i     := w_wr_cl_if.vld
   i_wt_dcache_wbuffer.io.wr_cl_idx_i     := w_wr_cl_if.idx
-    // single word write interface
-  wr_req := i_wt_dcache_wbuffer.io.wr_req_o
-  i_wt_dcache_wbuffer.io.wr_ack_i := wr_ack
-  wr_idx     := i_wt_dcache_wbuffer.io.wr_idx_o
-  wr_off     := i_wt_dcache_wbuffer.io.wr_off_o
-  wr_data    := i_wt_dcache_wbuffer.io.wr_data_o
-  wr_data_be := i_wt_dcache_wbuffer.io.wr_data_be_o
+
+  // single word write interface
+  i_wt_dcache_wbuffer.io.wr_if <> w_wr_if
+
   // write buffer forwarding
   wbuffer_data := i_wt_dcache_wbuffer.io.wbuffer_data_o
   tx_paddr     := i_wt_dcache_wbuffer.io.tx_paddr_o
@@ -185,13 +177,10 @@ class wt_dcache (
   i_wt_dcache_mem.io.wr_cl_if <> w_wr_cl_if
 
   i_wt_dcache_mem.io.wr_vld_bits_i     := wr_vld_bits
+
   // single word write port
-  i_wt_dcache_mem.io.wr_req_i          := wr_req
-  wr_ack := i_wt_dcache_mem.io.wr_ack_o
-  i_wt_dcache_mem.io.wr_idx_i          := wr_idx
-  i_wt_dcache_mem.io.wr_off_i          := wr_off
-  i_wt_dcache_mem.io.wr_data_i         := wr_data
-  i_wt_dcache_mem.io.wr_data_be_i      := wr_data_be
+  i_wt_dcache_mem.io.wr_if <> w_wr_if
+
   // write buffer forwarding
   i_wt_dcache_mem.io.wbuffer_data_i    := wbuffer_data
 }

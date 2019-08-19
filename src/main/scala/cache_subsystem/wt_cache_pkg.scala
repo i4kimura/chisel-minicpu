@@ -377,4 +377,14 @@ object wt_cache_pkg
     val data_be = Output(UInt((DCACHE_LINE_WIDTH/8).W))
   }
 
+  // DCache Write Signals for single word write, no tag access
+  class dcache_word_wr_if extends Bundle {
+    val req     = Output(Vec(DCACHE_SET_ASSOC, Bool()))            // write a single word to offset off_i[:3]
+    val ack     = Input (Bool())
+    val idx     = Output(UInt(DCACHE_CL_IDX_WIDTH.W))
+    val off     = Output(UInt(DCACHE_OFFSET_WIDTH.W))
+    val data    = Output(UInt(64.W))
+    val data_be = Output(UInt(8.W))
+  }
+
 }

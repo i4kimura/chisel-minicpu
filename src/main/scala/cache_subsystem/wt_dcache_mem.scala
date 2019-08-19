@@ -24,12 +24,7 @@ class wt_dcache_mem
     val wr_vld_bits_i   = Input(UInt(DCACHE_SET_ASSOC.W     ))
 
     // separate port for single word write, no tag access
-    val wr_req_i     = Input (Vec(DCACHE_SET_ASSOC, Bool()))            // write a single word to offset off_i[:3]
-    val wr_ack_o     = Output(Bool())
-    val wr_idx_i     = Input (UInt(DCACHE_CL_IDX_WIDTH.W))
-    val wr_off_i     = Input (UInt(DCACHE_OFFSET_WIDTH.W))
-    val wr_data_i    = Input (UInt(64.W))
-    val wr_data_be_i = Input (UInt(8.W))
+    val wr_if = Flipped(new dcache_word_wr_if())
 
     // forwarded wbuffer
     val wbuffer_data_i = Input(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
@@ -86,10 +81,10 @@ class wt_dcache_mem
   for (k <- 0 until DCACHE_NUM_BANKS) {
     for (j <- 0 until DCACHE_SET_ASSOC) {
       bank_be(k)(j) := Mux(io.wr_cl_if.we(j) & io.wr_cl_if.vld, io.wr_cl_if.data_be(k*8+7, k*8),
-                       Mux(io.wr_req_i   (j) & io.wr_ack_o,     io.wr_data_be_i,
+                       Mux(io.wr_if.req  (j) & io.wr_if.ack   , io.wr_if.data_be,
                            0.U))
       bank_wdata(k)(j) := Mux(io.wr_cl_if.we(j) & io.wr_cl_if.vld, io.wr_cl_if.data(k*64+63, k*64),
-                              io.wr_data_i)
+                              io.wr_if.data)
     }
   }
 
@@ -123,16 +118,16 @@ class wt_dcache_mem
 
 
 
-  vld_we      := io.wr_cl_if.vld
-  bank_req    := 0.U
-  io.wr_ack_o := 0.U
-  bank_we     := 0.U
+  vld_we       := io.wr_cl_if.vld
+  bank_req     := 0.U
+  io.wr_if.ack := false.B
+  bank_we      := 0.U
   for(i <- 0 until DCACHE_NUM_BANKS) {
-    bank_idx(i) := io.wr_idx_i
+    bank_idx(i) := io.wr_if.idx
   }
 
   for(i <- 0 until NumPorts) {
-    bank_collision(i) := (io.rd_if(i).rd_off(DCACHE_OFFSET_WIDTH-1,3) === io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3))
+    bank_collision(i) := (io.rd_if(i).rd_off(DCACHE_OFFSET_WIDTH-1,3) === io.wr_if.off(DCACHE_OFFSET_WIDTH-1,3))
   }
 
   when (io.wr_cl_if.vld && io.wr_cl_if.we.orR) {
@@ -146,12 +141,12 @@ class wt_dcache_mem
         bank_idx(io.rd_if(vld_sel_d).rd_off(DCACHE_OFFSET_WIDTH-1, 3)) := io.rd_if(vld_sel_d).rd_idx
       }
     }
-    when (io.wr_req_i.asUInt.orR) {
+    when (io.wr_if.req.asUInt.orR) {
       when (io.rd_if(vld_sel_d).rd_tag_only || !(io.rd_if(vld_sel_d).rd_ack && bank_collision(vld_sel_d))) {
-        io.wr_ack_o := true.B
-        // bank_req |= dcache_cl_bin2oh(io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3));
-        bank_req := dcache_cl_bin2oh(io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3));
-        bank_we  := dcache_cl_bin2oh(io.wr_off_i(DCACHE_OFFSET_WIDTH-1,3));
+        io.wr_if.ack := true.B
+        // bank_req |= dcache_cl_bin2oh(io.wr_if.off(DCACHE_OFFSET_WIDTH-1,3));
+        bank_req := dcache_cl_bin2oh(io.wr_if.off(DCACHE_OFFSET_WIDTH-1,3));
+        bank_we  := dcache_cl_bin2oh(io.wr_if.off(DCACHE_OFFSET_WIDTH-1,3));
       }
     }
   }

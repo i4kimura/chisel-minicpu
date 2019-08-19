@@ -70,13 +70,10 @@ class wt_dcache_wbuffer (
     // cacheline writes
     val wr_cl_vld_i = Input(Bool())
     val wr_cl_idx_i = Input(UInt(DCACHE_CL_IDX_WIDTH.W))
+
     // cache word write interface
-    val wr_req_o     = Output(Vec(DCACHE_SET_ASSOC, Bool()))
-    val wr_ack_i     = Input(Bool())
-    val wr_idx_o     = Output(UInt(DCACHE_CL_IDX_WIDTH.W))
-    val wr_off_o     = Output(UInt(DCACHE_OFFSET_WIDTH.W))
-    val wr_data_o    = Output(UInt(64.W))
-    val wr_data_be_o = Output(UInt(8.W))
+    val wr_if = new dcache_word_wr_if()
+
     // to forwarding logic and miss unit
     val wbuffer_data_o = Output(Vec(DCACHE_WBUF_DEPTH, new wbuffer_t()))
     val tx_paddr_o = Output(Vec(DCACHE_MAX_TX, UInt(64.W)))           // used to check for address collisions with read operations
@@ -210,15 +207,15 @@ class wt_dcache_wbuffer (
 
   for (i <- 0 until DCACHE_MAX_TX) { tx_stat_d(i) := tx_stat_q(i) }
   evict       := false.B
-  io.wr_req_o := VecInit(Seq.fill(DCACHE_SET_ASSOC)(false.B))
+  io.wr_if.req := VecInit(Seq.fill(DCACHE_SET_ASSOC)(false.B))
 
   // clear entry if it is clear whether it can be pushed to the cache or not
   when ((!rtrn_empty) && wbuffer_q(rtrn_ptr).checked) {
     // check if data is clean and can be written, otherwise skip
     // check if CL is present, otherwise skip
-    when ((io.wr_data_be_o.orR) && (wbuffer_q(rtrn_ptr).hit_oh.asUInt.orR)) {
-      io.wr_req_o := wbuffer_q(rtrn_ptr).hit_oh
-      when (io.wr_ack_i) {
+    when ((io.wr_if.data_be.orR) && (wbuffer_q(rtrn_ptr).hit_oh.asUInt.orR)) {
+      io.wr_if.req := wbuffer_q(rtrn_ptr).hit_oh
+      when (io.wr_if.ack) {
         evict    := true.B
         tx_stat_d(rtrn_id).vld := false.B
       }
@@ -272,11 +269,11 @@ class wt_dcache_wbuffer (
   rtrn_ptr       := tx_stat_q(rtrn_id).ptr
   // if we wrote into a word while it was in-flight, we cannot write the dirty bytes to the cache
   // when the TX returns
-  io.wr_data_be_o := tx_stat_q(rtrn_id).be & (~wbuffer_q(rtrn_ptr).dirty.asUInt)
-  wr_paddr        := wbuffer_q(rtrn_ptr).wtag << 3
-  io.wr_idx_o     := wr_paddr(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH)
-  io.wr_off_o     := wr_paddr(DCACHE_OFFSET_WIDTH-1, 0)
-  io.wr_data_o    := wbuffer_q(rtrn_ptr).data.asUInt
+  io.wr_if.data_be := tx_stat_q(rtrn_id).be & (~wbuffer_q(rtrn_ptr).dirty.asUInt)
+  wr_paddr         := wbuffer_q(rtrn_ptr).wtag << 3
+  io.wr_if.idx     := wr_paddr(DCACHE_INDEX_WIDTH-1, DCACHE_OFFSET_WIDTH)
+  io.wr_if.off     := wr_paddr(DCACHE_OFFSET_WIDTH-1, 0)
+  io.wr_if.data    := wbuffer_q(rtrn_ptr).data.asUInt
 
 
   ///////////////////////////////////////////////////////
