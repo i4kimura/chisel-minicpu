@@ -280,25 +280,25 @@ object riscv_pkg
   //     logic v;
   // } pte_t;
   //
-  // // ----------------------
-  // // Exception Cause Codes
-  // // ----------------------
-  // val logic [63:0] INSTR_ADDR_MISALIGNED = 0;
-  // val logic [63:0] INSTR_ACCESS_FAULT    = 1;
-  // val logic [63:0] ILLEGAL_INSTR         = 2;
-  // val logic [63:0] BREAKPOINT            = 3;
-  // val logic [63:0] LD_ADDR_MISALIGNED    = 4;
-  // val logic [63:0] LD_ACCESS_FAULT       = 5;
-  // val logic [63:0] ST_ADDR_MISALIGNED    = 6;
-  // val logic [63:0] ST_ACCESS_FAULT       = 7;
-  // val logic [63:0] ENV_CALL_UMODE        = 8;  // environment call from user mode
-  // val logic [63:0] ENV_CALL_SMODE        = 9;  // environment call from supervisor mode
-  // val logic [63:0] ENV_CALL_MMODE        = 11; // environment call from machine mode
-  // val logic [63:0] INSTR_PAGE_FAULT      = 12; // Instruction page fault
-  // val logic [63:0] LOAD_PAGE_FAULT       = 13; // Load page fault
-  // val logic [63:0] STORE_PAGE_FAULT      = 15; // Store page fault
-  // val logic [63:0] DEBUG_REQUEST         = 24; // Debug request
-  //
+  // ----------------------
+  // Exception Cause Codes
+  // ----------------------
+  val INSTR_ADDR_MISALIGNED =  0.U(64.W)
+  val INSTR_ACCESS_FAULT    =  1.U(64.W)
+  val ILLEGAL_INSTR         =  2.U(64.W)
+  val BREAKPOINT            =  3.U(64.W)
+  val LD_ADDR_MISALIGNED    =  4.U(64.W)
+  val LD_ACCESS_FAULT       =  5.U(64.W)
+  val ST_ADDR_MISALIGNED    =  6.U(64.W)
+  val ST_ACCESS_FAULT       =  7.U(64.W)
+  val ENV_CALL_UMODE        =  8.U(64.W) // environment call from user mode
+  val ENV_CALL_SMODE        =  9.U(64.W) // environment call from supervisor mode
+  val ENV_CALL_MMODE        = 11.U(64.W) // environment call from machine mode
+  val INSTR_PAGE_FAULT      = 12.U(64.W) // Instruction page fault
+  val LOAD_PAGE_FAULT       = 13.U(64.W) // Load page fault
+  val STORE_PAGE_FAULT      = 15.U(64.W) // Store page fault
+  val DEBUG_REQUEST         = 24.U(64.W) // Debug request
+
   // val int unsigned IRQ_S_SOFT  = 1;
   // val int unsigned IRQ_M_SOFT  = 3;
   // val int unsigned IRQ_S_TIMER = 5;

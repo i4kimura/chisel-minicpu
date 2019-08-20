@@ -366,7 +366,7 @@ object ariane_pkg
   // this is the struct which we will inject into the pipeline to guide the various
   // units towards the correct branch decision and resolve
   class branchpredict_sbe_t extends Bundle {
-    val cf = new bp_resolve_t()            // type of control flow prediction
+    val cf              = UInt(3.W)    // type of control flow prediction
     val predict_address = UInt(64.W)   // target address at which to jump, or not
   }
 
@@ -587,16 +587,16 @@ object ariane_pkg
   //         logic [TRANS_ID_BITS-1:0] trans_id
   //     } lsu_ctrl_t
   //
-  //     // ---------------
-  //     // IF/ID Stage
-  //     // ---------------
-  //     // store the decompressed instruction
-  //     typedef struct packed {
-  //         logic [63:0]           address;        // the address of the instructions from below
-  //         logic [31:0]           instruction;    // instruction word
-  //         branchpredict_sbe_t    branch_predict; // this field contains branch prediction information regarding the forward branch path
-  //         exception_t            ex;             // this field contains exceptions which might have happened earlier, e.g.: fetch exceptions
-  //     } fetch_entry_t
+  // ---------------
+  // IF/ID Stage
+  // ---------------
+  // store the decompressed instruction
+  class fetch_entry_t extends Bundle {
+    val address = UInt(64.W)                       // the address of the instructions from below
+    val instruction = UInt(32.W)                   // instruction word
+    val branch_predict = new branchpredict_sbe_t() // this field contains branch prediction information regarding the forward branch path
+    val ex = new exception_t()                     // this field contains exceptions which might have happened earlier, e.g.: fetch exceptions
+  }
   //
   //     // ---------------
   //     // ID/EX/WB Stage
