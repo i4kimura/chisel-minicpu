@@ -61,7 +61,7 @@ class lzc (
       for (k <- 0 until level2pow) { // : g_level
                                     // if two successive indices are still in the vector...
         if (k * 2 < WIDTH-1) {
-          sel_nodes  (level2pow-1+k) := in_tmp(k*2) | in_tmp(k*2+1)
+           sel_nodes  (level2pow-1+k) := in_tmp(k*2) | in_tmp(k*2+1)
           index_nodes(level2pow-1+k) := Mux(in_tmp(k*2) === true.B, index_lut(k*2), index_lut(k*2+1))
         }
         // if only the first index is still in the vector...
@@ -93,7 +93,7 @@ class lzc (
   if (NUM_LEVELS > 0) {
     io.empty_o := ~sel_nodes(0)
   } else {
-    io.empty_o := ~(io.in_i.asUInt.orR)
+    io.empty_o := ~(io.in_i.reduce(_|_))
   }
 
 }

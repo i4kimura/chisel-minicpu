@@ -318,6 +318,7 @@ object ariane_pkg
   // leave as is (fails with >8 entries and wider fetch width)
   val FETCH_FIFO_DEPTH:Int  = 4
   val FETCH_WIDTH:Int       = 32
+  // val FETCH_WIDTH:Int       = 64
   // maximum instructions we can fetch on one request (we support compressed instructions)
   val INSTR_PER_FETCH:Int = FETCH_WIDTH / 16
 
@@ -333,62 +334,69 @@ object ariane_pkg
   }
 
 
-  //     typedef enum logic [2:0] {
-  //       NoCF,   // No control flow prediction
-  //       Branch, // Branch
-  //       Jump,   // Jump to address from immediate
-  //       JumpR,  // Jump to address from registers
-  //       Return  // Return Address Prediction
-  //     } cf_t
-  //
-  //     // branch-predict
-  //     // this is the struct we get back from ex stage and we will use it to update
-  //     // all the necessary data structures
-  //     // bp_resolve_t
-  //     typedef struct packed {
-  //         logic        valid;           // prediction with all its values is valid
-  //         logic [63:0] pc;              // PC of predict or mis-predict
-  //         logic [63:0] target_address;  // target address at which to jump, or not
-  //         logic        is_mispredict;   // set if this was a mis-predict
-  //         logic        is_taken;        // branch is taken
-  //         cf_t         cf_type;         // Type of control flow change
-  //     } bp_resolve_t
-  //
-  //     // branchpredict scoreboard entry
-  //     // this is the struct which we will inject into the pipeline to guide the various
-  //     // units towards the correct branch decision and resolve
-  //     typedef struct packed {
-  //         cf_t         cf;              // type of control flow prediction
-  //         logic [63:0] predict_address; // target address at which to jump, or not
-  //     } branchpredict_sbe_t
-  //
-  //     typedef struct packed {
-  //         logic        valid
-  //         logic [63:0] pc;             // update at PC
-  //         logic [63:0] target_address
-  //     } btb_update_t
-  //
-  //     typedef struct packed {
-  //         logic        valid
-  //         logic [63:0] target_address
-  //     } btb_prediction_t
-  //
-  //     typedef struct packed {
-  //         logic        valid
-  //         logic [63:0] ra
-  //     } ras_t
-  //
-  //     typedef struct packed {
-  //         logic        valid
-  //         logic [63:0] pc;          // update at PC
-  //         logic        taken
-  //     } bht_update_t
-  //
-  //     typedef struct packed {
-  //         logic       valid
-  //         logic       taken
-  //     } bht_prediction_t
-  //
+  // typedef enum logic [2:0] {
+  //   NoCF,   // No control flow prediction
+  //   Branch, // Branch
+  //   Jump,   // Jump to address from immediate
+  //   JumpR,  // Jump to address from registers
+  //   Return  // Return Address Prediction
+  // } cf_t
+
+  // cf_t
+  val NoCF   = Integer.parseInt("000", 2).U
+  val Branch = Integer.parseInt("001", 2).U
+  val Jump   = Integer.parseInt("010", 2).U
+  val JumpR  = Integer.parseInt("011", 2).U
+  val Return = Integer.parseInt("100", 2).U
+
+  // branch-predict
+  // this is the struct we get back from ex stage and we will use it to update
+  // all the necessary data structures
+  // bp_resolve_t
+  class bp_resolve_t extends Bundle {
+    val valid          = Bool()     // prediction with all its values is valid
+    val pc             = UInt(64.W) // PC of predict or mis-predict
+    val target_address = UInt(64.W) // target address at which to jump, or not
+    val is_mispredict  = Bool()     // set if this was a mis-predict
+    val is_taken       = Bool()     // branch is taken
+    val cf_type        = UInt(3.W)  // Type of control flow change (cf_t)
+  }
+
+  // branchpredict scoreboard entry
+  // this is the struct which we will inject into the pipeline to guide the various
+  // units towards the correct branch decision and resolve
+  class branchpredict_sbe_t extends Bundle {
+    val cf = new bp_resolve_t()            // type of control flow prediction
+    val predict_address = UInt(64.W)   // target address at which to jump, or not
+  }
+
+  class btb_update_t extends Bundle {
+    val valid = Bool()
+    val pc = UInt(64.W)             // update at PC
+    val target_address = UInt(64.W)
+  }
+
+  class btb_prediction_t extends Bundle {
+    val valid = Bool()
+    val target_address = UInt(64.W)
+  }
+
+  class ras_t extends Bundle {
+    val valid = Bool()
+    val ra = UInt(64.W)
+  }
+
+  class bht_update_t extends Bundle {
+    val valid = Bool()
+    val pc    = UInt(64.W)       // update at PC
+    val taken = Bool()
+  }
+
+  class bht_prediction_t extends Bundle {
+    val valid = Bool()
+    val taken = Bool()
+  }
+
   //     typedef enum logic[3:0] {
   //         NONE,      // 0
   //         LOAD,      // 1
@@ -683,30 +691,40 @@ object ariane_pkg
     val result = UInt(64.W)  // sign-extended, result
   }
 
-  //
-  //
-  //     // ----------------------
-  //     // Arithmetic Functions
-  //     // ----------------------
-  //     def [63:0] sext32 (logic [31:0] operand)
-  //         return {{32{operand[31]}}, operand[31:0]}
-  //     endfunction
-  //
-  //     // ----------------------
-  //     // Immediate functions
-  //     // ----------------------
-  //     def [63:0] uj_imm (logic [31:0] instruction_i)
-  //         return { {44 {instruction_i[31]}}, instruction_i[19:12], instruction_i[20], instruction_i[30:21], 1'b0 }
-  //     endfunction
-  //
-  //     def [63:0] i_imm (logic [31:0] instruction_i)
-  //         return { {52 {instruction_i[31]}}, instruction_i[31:20] }
-  //     endfunction
-  //
-  //     def [63:0] sb_imm (logic [31:0] instruction_i)
-  //         return { {51 {instruction_i[31]}}, instruction_i[31], instruction_i[7], instruction_i[30:25], instruction_i[11:8], 1'b0 }
-  //     endfunction
-  //
+
+
+  // ----------------------
+  // Arithmetic Functions
+  // ----------------------
+  def sext32 (operand: UInt): UInt = {
+    return Cat(VecInit(Seq.fill(32)(operand(31))).asUInt, operand(31, 0))
+  }
+
+  // ----------------------
+  // Immediate functions
+  // ----------------------
+  def uj_imm (instruction_i: UInt): UInt = {
+    return Cat(VecInit(Seq.fill(44)(instruction_i(31))).asUInt,
+               instruction_i(19,12),
+               instruction_i(20),
+               instruction_i(30,21),
+               0.U(1.W))
+  }
+
+  def i_imm (instruction_i: UInt): UInt = {
+    return Cat(VecInit(Seq.fill(52)(instruction_i(31))).asUInt,
+               instruction_i(31,20))
+  }
+
+  def sb_imm (instruction_i: UInt): UInt = {
+    return Cat(VecInit(Seq.fill(51)(instruction_i(31))).asUInt,
+               instruction_i(31),
+               instruction_i(7),
+               instruction_i(30,25),
+               instruction_i(11, 8),
+               0.U(1.W))
+  }
+
   //     // ----------------------
   //     // LSU Functions
   //     // ----------------------
