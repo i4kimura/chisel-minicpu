@@ -163,134 +163,137 @@ object ariane_pkg
   //     endfunction
   //
 
-  //
-  //     // TODO: Slowly move those parameters to the new system.
-  //     val NR_SB_ENTRIES = 8; // number of scoreboard entries
-  //     val TRANS_ID_BITS = $clog2(NR_SB_ENTRIES); // depending on the number of scoreboard entries we need that many bits
-  //                                                       // to uniquely identify the entry in the scoreboard
-  //     val ASID_WIDTH    = 1
-  //     val BITS_SATURATION_COUNTER = 2
-  //     val NR_COMMIT_PORTS = 2
-  //
-  //     val ENABLE_RENAME = 1'b0
-  //
-  //     val ISSUE_WIDTH = 1
-  //     // amount of pipeline registers inserted for load/store return path
-  //     // this can be tuned to trade-off IPC vs. cycle time
-  //     val int unsigned NR_LOAD_PIPE_REGS = 1
-  //     val int unsigned NR_STORE_PIPE_REGS = 0
-  //
-  //     // depth of store-buffers, this needs to be a power of two
-  //     val int unsigned DEPTH_SPEC   = 4
-  //
+
+  // TODO: Slowly move those parameters to the new system.
+  val NR_SB_ENTRIES = 8 // number of scoreboard entries
+  val TRANS_ID_BITS = log2Ceil(NR_SB_ENTRIES) // depending on the number of scoreboard entries we need that many bits
+                                               // to uniquely identify the entry in the scoreboard
+  val ASID_WIDTH    = 1
+  val BITS_SATURATION_COUNTER = 2
+  val NR_COMMIT_PORTS = 2
+
+  val ENABLE_RENAME = false.B
+
+  val ISSUE_WIDTH = 1
+  // amount of pipeline registers inserted for load/store return path
+  // this can be tuned to trade-off IPC vs. cycle time
+  val NR_LOAD_PIPE_REGS = 1
+  val NR_STORE_PIPE_REGS = 0
+
+  // depth of store-buffers, this needs to be a power of two
+  val DEPTH_SPEC   = 4
+
   // `ifdef WT_DCACHE
-  //     // in this case we can use a small commit queue since we have a write buffer in the dcache
-  //     // we could in principle do without the commit queue in this case, but the timing degrades if we do that due
-  //     // to longer paths into the commit stage
-  //     val int unsigned DEPTH_COMMIT = 4
+  // in this case we can use a small commit queue since we have a write buffer in the dcache
+  // we could in principle do without the commit queue in this case, but the timing degrades if we do that due
+  // to longer paths into the commit stage
+  val DEPTH_COMMIT = 4
   // `else
-  //     // allocate more space for the commit buffer to be on the save side, this needs to be a power of two
-  //     val int unsigned DEPTH_COMMIT = 8
+  // // allocate more space for the commit buffer to be on the save side, this needs to be a power of two
+  // val DEPTH_COMMIT = 8
   // `endif
-  //
-  //
-  // `ifdef PITON_ARIANE
-  //     // Floating-point extensions configuration
-  //     val bit RVF = 1'b1; // Is F extension enabled
-  //     val bit RVD = 1'b1; // Is D extension enabled
-  // `else
-  //     // Floating-point extensions configuration
-  //     val bit RVF = 1'b1; // Is F extension enabled
-  //     val bit RVD = 1'b1; // Is D extension enabled
-  // `endif
-  //     val bit RVA = 1'b1; // Is A extension enabled
-  //
-  //     // Transprecision floating-point extensions configuration
-  //     val bit XF16    = 1'b0; // Is half-precision float extension (Xf16) enabled
-  //     val bit XF16ALT = 1'b0; // Is alternative half-precision float extension (Xf16alt) enabled
-  //     val bit XF8     = 1'b0; // Is quarter-precision float extension (Xf8) enabled
-  //     val bit XFVEC   = 1'b0; // Is vectorial float extension (Xfvec) enabled
-  //
-  //     // Transprecision float unit
-  //     val int unsigned LAT_COMP_FP32    = 'd2
-  //     val int unsigned LAT_COMP_FP64    = 'd3
-  //     val int unsigned LAT_COMP_FP16    = 'd1
-  //     val int unsigned LAT_COMP_FP16ALT = 'd1
-  //     val int unsigned LAT_COMP_FP8     = 'd1
-  //     val int unsigned LAT_DIVSQRT      = 'd2
-  //     val int unsigned LAT_NONCOMP      = 'd1
-  //     val int unsigned LAT_CONV         = 'd2
-  //
-  //     // --------------------------------------
-  //     // vvvv Don't change these by hand! vvvv
-  //     val bit FP_PRESENT = RVF | RVD | XF16 | XF16ALT | XF8
-  //
-  //     // Length of widest floating-point format
-  //     val FLEN    = RVD     ? 64 : // D ext.
-  //                          RVF     ? 32 : // F ext.
-  //                          XF16    ? 16 : // Xf16 ext.
-  //                          XF16ALT ? 16 : // Xf16alt ext.
-  //                          XF8     ? 8 :  // Xf8 ext.
-  //                          0;             // Unused in case of no FP
-  //
-  //     val bit NSX = XF16 | XF16ALT | XF8 | XFVEC; // Are non-standard extensions present?
-  //
-  //     val bit RVFVEC     = RVF     & XFVEC & FLEN>32; // FP32 vectors available if vectors and larger fmt enabled
-  //     val bit XF16VEC    = XF16    & XFVEC & FLEN>16; // FP16 vectors available if vectors and larger fmt enabled
-  //     val bit XF16ALTVEC = XF16ALT & XFVEC & FLEN>16; // FP16ALT vectors available if vectors and larger fmt enabled
-  //     val bit XF8VEC     = XF8     & XFVEC & FLEN>8;  // FP8 vectors available if vectors and larger fmt enabled
-  //     // ^^^^ until here ^^^^
-  //     // ---------------------
-  //
-  //     val logic [63:0] ARIANE_MARCHID = 64'd3
-  //
-  //     val logic [63:0] ISA_CODE = (RVA <<  0)  // A - Atomic Instructions extension
-  //                                      | (1   <<  2)  // C - Compressed extension
-  //                                      | (RVD <<  3)  // D - Double precsision floating-point extension
-  //                                      | (RVF <<  5)  // F - Single precsision floating-point extension
-  //                                      | (1   <<  8)  // I - RV32I/64I/128I base ISA
-  //                                      | (1   << 12)  // M - Integer Multiply/Divide extension
-  //                                      | (0   << 13)  // N - User level interrupts supported
-  //                                      | (1   << 18)  // S - Supervisor mode implemented
-  //                                      | (1   << 20)  // U - User mode implemented
-  //                                      | (NSX << 23)  // X - Non-standard extensions present
-  //                                      | (1   << 63); // RV64
-  //
-  //     // 32 registers + 1 bit for re-naming = 6
-  //     val REG_ADDR_SIZE = 6
-  //     val NR_WB_PORTS = 4
+
+
+  // ifdef PITON_ARIANE
+  // Floating-point extensions configuration
+  val RVF = true // Is F extension enabled
+  val RVD = true // Is D extension enabled
+  // else
+  // Floating-point extensions configuration
+  // val RVF = true // Is F extension enabled
+  // val RVD = true // Is D extension enabled
+  // endif
+  val RVA = true // Is A extension enabled
+
+  // Transprecision floating-point extensions configuration
+  val XF16    = false // Is half-precision float extension (Xf16) enabled
+  val XF16ALT = false // Is alternative half-precision float extension (Xf16alt) enabled
+  val XF8     = false // Is quarter-precision float extension (Xf8) enabled
+  val XFVEC   = false // Is vectorial float extension (Xfvec) enabled
+
+  // Transprecision float unit
+  val LAT_COMP_FP32    = 2
+  val LAT_COMP_FP64    = 3
+  val LAT_COMP_FP16    = 1
+  val LAT_COMP_FP16ALT = 1
+  val LAT_COMP_FP8     = 1
+  val LAT_DIVSQRT      = 2
+  val LAT_NONCOMP      = 1
+  val LAT_CONV         = 2
+
+  // --------------------------------------
+  // vvvv Don't change these by hand! vvvv
+  val FP_PRESENT = RVF | RVD | XF16 | XF16ALT | XF8
+
+  // Length of widest floating-point format
+  val FLEN =      if(RVD    ) 64 // D ext.
+             else if(RVF    ) 32 // F ext.
+             else if(XF16   ) 16 // Xf16 ext.
+             else if(XF16ALT) 16 // Xf16alt ext.
+             else if(XF8    ) 8  // Xf8 ext.
+             else             0  // Unused in case of no FP
+
+  val NSX = XF16 | XF16ALT | XF8 | XFVEC; // Are non-standard extensions present?
+
+  val RVFVEC     = RVF     & XFVEC & (FLEN>32) // FP32 vectors available if vectors and larger fmt enabled
+  val XF16VEC    = XF16    & XFVEC & (FLEN>16) // FP16 vectors available if vectors and larger fmt enabled
+  val XF16ALTVEC = XF16ALT & XFVEC & (FLEN>16) // FP16ALT vectors available if vectors and larger fmt enabled
+  val XF8VEC     = XF8     & XFVEC & (FLEN>8 ) // FP8 vectors available if vectors and larger fmt enabled
+
+  // ^^^^ until here ^^^^
+  // ---------------------
+
+  val ARIANE_MARCHID = 3.U(64.W)
+
+  var ISA_CODE =        (RVA.asInstanceOf[Int] <<  0)  // A - Atomic Instructions extension
+  ISA_CODE = ISA_CODE | (1                     <<  2)  // C - Compressed extension
+  ISA_CODE = ISA_CODE | (RVD.asInstanceOf[Int] <<  3)  // D - Double precsision floating-point extension
+  ISA_CODE = ISA_CODE | (RVF.asInstanceOf[Int] <<  5)  // F - Single precsision floating-point extension
+  ISA_CODE = ISA_CODE | (1                     <<  8)  // I - RV32I/64I/128I base ISA
+  ISA_CODE = ISA_CODE | (1                     << 12)  // M - Integer Multiply/Divide extension
+  ISA_CODE = ISA_CODE | (0                     << 13)  // N - User level interrupts supported
+  ISA_CODE = ISA_CODE | (1                     << 18)  // S - Supervisor mode implemented
+  ISA_CODE = ISA_CODE | (1                     << 20)  // U - User mode implemented
+  ISA_CODE = ISA_CODE | (NSX.asInstanceOf[Int] << 23)  // X - Non-standard extensions present
+  ISA_CODE = ISA_CODE | (1                     << 63)  // RV64
+
+
+  // 32 registers + 1 bit for re-naming = 6
+  val REG_ADDR_SIZE = 6
+  val NR_WB_PORTS = 4
   //
   //     // static debug hartinfo
   //     val dm::hartinfo_t DebugHartInfo = '{
   //                                                 zero1:        '0,
   //                                                 nscratch:      2, // Debug module needs at least two scratch regs
   //                                                 zero0:        '0,
-  //                                                 dataaccess: 1'b1, // data registers are memory mapped in the debugger
+  //                                                 dataaccess: true.B, // data registers are memory mapped in the debugger
   //                                                 datasize: dm::DataCount,
   //                                                 dataaddr: dm::DataAddr
   //                                               }
   //
   //     // enables a commit log which matches spikes commit log format for easier trace comparison
-  //     val bit ENABLE_SPIKE_COMMIT_LOG = 1'b1
-  //
-  //     // ------------- Dangerouse -------------
-  //     // if set to zero a flush will not invalidate the cache-lines, in a single core environment
-  //     // where coherence is not necessary this can improve performance. This needs to be switched on
-  //     // when more than one core is in a system
-  //     val logic INVALIDATE_ON_FLUSH = 1'b1
+  //     val bit ENABLE_SPIKE_COMMIT_LOG = true.B
+
+  // ------------- Dangerouse -------------
+  // if set to zero a flush will not invalidate the cache-lines, in a single core environment
+  // where coherence is not necessary this can improve performance. This needs to be switched on
+  // when more than one core is in a system
+  val INVALIDATE_ON_FLUSH = true
   // `ifdef SPIKE_TANDEM
   //     // enable performance cycle counter, if set to zero mcycle will be incremented
   //     // with instret (non RISC-V conformal)
-  //     val bit ENABLE_CYCLE_COUNT = 1'b0
+  //     val bit ENABLE_CYCLE_COUNT = false.B
   //     // mark WIF as nop
-  //     val bit ENABLE_WFI = 1'b0
+  //     val bit ENABLE_WFI = false.B
   //     // Spike zeros tval on all exception except memory faults
-  //     val bit ZERO_TVAL = 1'b1
+  //     val bit ZERO_TVAL = true.B
   // `else
-  //     val bit ENABLE_CYCLE_COUNT = 1'b1
-  //     val bit ENABLE_WFI = 1'b1
-  //     val bit ZERO_TVAL = 1'b0
+  val ENABLE_CYCLE_COUNT = true
+  val ENABLE_WFI         = true
+  val ZERO_TVAL          = false
   // `endif
+
   //     // read mask for SSTATUS over MMSTATUS
   //     val logic [63:0] SMODE_STATUS_READ_MASK = riscv::SSTATUS_UIE
   //                                                    | riscv::SSTATUS_SIE
@@ -397,33 +400,32 @@ object ariane_pkg
     val taken = Bool()
   }
 
-  //     typedef enum logic[3:0] {
-  //         NONE,      // 0
-  //         LOAD,      // 1
-  //         STORE,     // 2
-  //         ALU,       // 3
-  //         CTRL_FLOW, // 4
-  //         MULT,      // 5
-  //         CSR,       // 6
-  //         FPU,       // 7
-  //         FPU_VEC    // 8
-  //     } fu_t
-  //
-  //     val EXC_OFF_RST      = 8'h80
-  //
-  //     val SupervisorIrq = 1
-  //     val MachineIrq = 0
-  //
-  //     // All information needed to determine whether we need to associate an interrupt
-  //     // with the corresponding instruction or not.
-  //     typedef struct packed {
-  //       logic [63:0] mie
-  //       logic [63:0] mip
-  //       logic [63:0] mideleg
-  //       logic        sie
-  //       logic        global_enable
-  //     } irq_ctrl_t
-  //
+  type fu_t = UInt
+  val NONE     :fu_t = 0.U
+  val LOAD     :fu_t = 1.U
+  val STORE    :fu_t = 2.U
+  val ALU      :fu_t = 3.U
+  val CTRL_FLOW:fu_t = 4.U
+  val MULT     :fu_t = 5.U
+  val CSR      :fu_t = 6.U
+  val FPU      :fu_t = 7.U
+  val FPU_VEC  :fu_t = 8.U
+
+  val EXC_OFF_RST      = "h80".U
+
+  val SupervisorIrq = 1
+  val MachineIrq = 0
+
+  // All information needed to determine whether we need to associate an interrupt
+  // with the corresponding instruction or not.
+  class irq_ctrl_t extends Bundle {
+    val mie     = UInt(64.W)
+    val mip     = UInt(64.W)
+    val mideleg = UInt(64.W)
+    val sie     = Bool()
+    val global_enable = Bool()
+  }
+
   //     // ---------------
   //     // Cache config
   //     // ---------------
@@ -445,47 +447,150 @@ object ariane_pkg
   // val DCACHE_SET_ASSOC  : Int = 8
   // `endif
 
-  //     // ---------------
-  //     // EX Stage
-  //     // ---------------
-  //     typedef enum logic [6:0] { // basic ALU op
-  //                                ADD, SUB, ADDW, SUBW,
-  //                                // logic operations
-  //                                XORL, ORL, ANDL,
-  //                                // shifts
-  //                                SRA, SRL, SLL, SRLW, SLLW, SRAW,
-  //                                // comparisons
-  //                                LTS, LTU, GES, GEU, EQ, NE,
-  //                                // jumps
-  //                                JALR, BRANCH,
-  //                                // set lower than operations
-  //                                SLTS, SLTU,
-  //                                // CSR functions
-  //                                MRET, SRET, DRET, ECALL, WFI, FENCE, FENCE_I, SFENCE_VMA, CSR_WRITE, CSR_READ, CSR_SET, CSR_CLEAR,
-  //                                // LSU functions
-  //                                LD, SD, LW, LWU, SW, LH, LHU, SH, LB, SB, LBU,
-  //                                // Atomic Memory Operations
-  //                                AMO_LRW, AMO_LRD, AMO_SCW, AMO_SCD,
-  //                                AMO_SWAPW, AMO_ADDW, AMO_ANDW, AMO_ORW, AMO_XORW, AMO_MAXW, AMO_MAXWU, AMO_MINW, AMO_MINWU,
-  //                                AMO_SWAPD, AMO_ADDD, AMO_ANDD, AMO_ORD, AMO_XORD, AMO_MAXD, AMO_MAXDU, AMO_MIND, AMO_MINDU,
-  //                                // Multiplications
-  //                                MUL, MULH, MULHU, MULHSU, MULW,
-  //                                // Divisions
-  //                                DIV, DIVU, DIVW, DIVUW, REM, REMU, REMW, REMUW,
-  //                                // Floating-Point Load and Store Instructions
-  //                                FLD, FLW, FLH, FLB, FSD, FSW, FSH, FSB,
-  //                                // Floating-Point Computational Instructions
-  //                                FADD, FSUB, FMUL, FDIV, FMIN_MAX, FSQRT, FMADD, FMSUB, FNMSUB, FNMADD,
-  //                                // Floating-Point Conversion and Move Instructions
-  //                                FCVT_F2I, FCVT_I2F, FCVT_F2F, FSGNJ, FMV_F2X, FMV_X2F,
-  //                                // Floating-Point Compare Instructions
-  //                                FCMP,
-  //                                // Floating-Point Classify Instruction
-  //                                FCLASS,
-  //                                // Vectorial Floating-Point Instructions that don't directly map onto the scalar ones
-  //                                VFMIN, VFMAX, VFSGNJ, VFSGNJN, VFSGNJX, VFEQ, VFNE, VFLT, VFGE, VFLE, VFGT, VFCPKAB_S, VFCPKCD_S, VFCPKAB_D, VFCPKCD_D
-  //                              } fu_op
-  //
+  // ---------------
+  // EX Stage
+  // ---------------
+  type fu_op = UInt
+  // basic ALU op
+  val ADD  = 0.U
+  val SUB  = 1.U
+  val ADDW = 2.U
+  val SUBW = 3.U
+  // logic operations
+  val XORL = 4.U
+  val ORL  = 5.U
+  val ANDL = 6.U
+  // shifts
+  val SRA  =  7.U
+  val SRL  =  8.U
+  val SLL  =  9.U
+  val SRLW = 10.U
+  val SLLW = 11.U
+  val SRAW = 12.U
+  // comparisons
+  val LTS = 13.U
+  val LTU = 14.U
+  val GES = 15.U
+  val GEU = 16.U
+  val EQ  = 17.U
+  val NE  = 18.U
+  // jumps
+  val JALR   = 19.U
+  val BRANCH = 20.U
+  // set lower than operations
+  val SLTS = 21.U
+  val SLTU = 22.U
+  // CSR functions
+  val MRET       = 23.U
+  val SRET       = 24.U
+  val DRET       = 25.U
+  val ECALL      = 26.U
+  val WFI        = 27.U
+  val FENCE      = 28.U
+  val FENCE_I    = 29.U
+  val SFENCE_VMA = 30.U
+  val CSR_WRITE  = 31.U
+  val CSR_READ   = 32.U
+  val CSR_SET    = 33.U
+  val CSR_CLEAR  = 34.U
+  // LSU functions
+  val LD  = 35.U
+  val SD  = 36.U
+  val LW  = 37.U
+  val LWU = 38.U
+  val SW  = 39.U
+  val LH  = 40.U
+  val LHU = 41.U
+  val SH  = 42.U
+  val LB  = 43.U
+  val SB  = 44.U
+  val LBU = 45.U
+  // Atomic Memory Operations
+  val AMO_LRW    = 46.U
+  val AMO_LRD    = 47.U
+  val AMO_SCW    = 48.U
+  val AMO_SCD    = 49.U
+  val AMO_SWAPW  = 50.U
+  val AMO_ADDW   = 51.U
+  val AMO_ANDW   = 52.U
+  val AMO_ORW    = 53.U
+  val AMO_XORW   = 54.U
+  val AMO_MAXW   = 55.U
+  val AMO_MAXWU  = 56.U
+  val AMO_MINW   = 57.U
+  val AMO_MINWU  = 58.U
+  val AMO_SWAPD  = 59.U
+  val AMO_ADDD   = 60.U
+  val AMO_ANDD   = 61.U
+  val AMO_ORD    = 62.U
+  val AMO_XORD   = 63.U
+  val AMO_MAXD   = 64.U
+  val AMO_MAXDU  = 65.U
+  val AMO_MIND   = 66.U
+  val AMO_MINDU  = 67.U
+  // Multiplications
+  val MUL    = 68.U
+  val MULH   = 69.U
+  val MULHU  = 70.U
+  val MULHSU = 71.U
+  val MULW   = 72.U
+  // Divisions
+  val DIV   = 73.U
+  val DIVU  = 74.U
+  val DIVW  = 75.U
+  val DIVUW = 76.U
+  val REM   = 77.U
+  val REMU  = 78.U
+  val REMW  = 79.U
+  val REMUW = 80.U
+  // Floating-Point Load and Store Instructions
+  val FLD = 81.U
+  val FLW = 82.U
+  val FLH = 83.U
+  val FLB = 84.U
+  val FSD = 85.U
+  val FSW = 86.U
+  val FSH = 87.U
+  val FSB = 88.U
+  // Floating-Point Computational Instructions
+  val FADD     = 89.U
+  val FSUB     = 90.U
+  val FMUL     = 91.U
+  val FDIV     = 92.U
+  val FMIN_MAX = 93.U
+  val FSQRT    = 94.U
+  val FMADD    = 95.U
+  val FMSUB    = 96.U
+  val FNMSUB   = 97.U
+  val FNMADD   = 98.U
+  // Floating-Point Conversion and Move Instructions
+  val FCVT_F2I = 99.U
+  val FCVT_I2F = 100.U
+  val FCVT_F2F = 101.U
+  val FSGNJ    = 102.U
+  val FMV_F2X  = 103.U
+  val FMV_X2F  = 104.U
+  // Floating-Point Compare Instructions
+  val FCMP = 105.U
+  // Floating-Point Classify Instruction
+  val FCLASS = 106.U
+  // Vectorial Floating-Point Instructions that don't directly map onto the scalar ones
+  val VFMIN     = 107.U
+  val VFMAX     = 108.U
+  val VFSGNJ    = 109.U
+  val VFSGNJN   = 110.U
+  val VFSGNJX   = 111.U
+  val VFEQ      = 112.U
+  val VFNE      = 113.U
+  val VFLT      = 114.U
+  val VFGE      = 115.U
+  val VFLE      = 116.U
+  val VFGT      = 117.U
+  val VFCPKAB_S = 118.U
+  val VFCPKCD_S = 119.U
+  val VFCPKAB_D = 120.U
+  val VFCPKCD_D = 121.U
+
   //     typedef struct packed {
   //         fu_t                      fu
   //         fu_op                     operator
@@ -497,8 +602,8 @@ object ariane_pkg
   //
   //     def is_branch (input fu_op op)
   //         unique case (op) inside
-  //             EQ, NE, LTS, GES, LTU, GEU: return 1'b1
-  //             default                   : return 1'b0; // all other ops
+  //             EQ, NE, LTS, GES, LTU, GEU: return true.B
+  //             default                   : return false.B; // all other ops
   //         endcase
   //     endfunction
   //
@@ -515,11 +620,11 @@ object ariane_pkg
   //                 FMV_F2X,                         // FPR-GPR Moves
   //                 FCMP,                            // Comparisons
   //                 FCLASS,                          // Classifications
-  //                 [VFMIN:VFCPKCD_D] : return 1'b1; // Additional Vectorial FP ops
-  //                 default           : return 1'b0; // all other ops
+  //                 [VFMIN:VFCPKCD_D] : return true.B; // Additional Vectorial FP ops
+  //                 default           : return false.B; // all other ops
   //             endcase
   //         end else
-  //             return 1'b0
+  //             return false.B
   //     endfunction
   //
   //     def is_rs2_fpr (input fu_op op)
@@ -531,11 +636,11 @@ object ariane_pkg
   //                 FCVT_F2F,                        // Vectorial F2F Conversions requrie target
   //                 [FSGNJ:FMV_F2X],                 // Sign Injections and moves mapped to SGNJ
   //                 FCMP,                            // Comparisons
-  //                 [VFMIN:VFCPKCD_D] : return 1'b1; // Additional Vectorial FP ops
-  //                 default           : return 1'b0; // all other ops
+  //                 [VFMIN:VFCPKCD_D] : return true.B; // Additional Vectorial FP ops
+  //                 default           : return false.B; // all other ops
   //             endcase
   //         end else
-  //             return 1'b0
+  //             return false.B
   //     endfunction
   //
   //     // ternary operations encode the rs3 address in the imm field, also add/sub
@@ -544,11 +649,11 @@ object ariane_pkg
   //             unique case (op) inside
   //                 [FADD:FSUB],                         // ADD/SUB need inputs as Operand B/C
   //                 [FMADD:FNMADD],                      // Fused Computational Operations
-  //                 [VFCPKAB_S:VFCPKCD_D] : return 1'b1; // Vectorial FP cast and pack ops
-  //                 default               : return 1'b0; // all other ops
+  //                 [VFCPKAB_S:VFCPKCD_D] : return true.B; // Vectorial FP cast and pack ops
+  //                 default               : return false.B; // all other ops
   //             endcase
   //         end else
-  //             return 1'b0
+  //             return false.B
   //     endfunction
   //
   //     def is_rd_fpr (input fu_op op)
@@ -561,19 +666,19 @@ object ariane_pkg
   //                 FSGNJ,                               // Sign Injections
   //                 FMV_X2F,                             // GPR-FPR Moves
   //                 [VFMIN:VFSGNJX],                     // Vectorial MIN/MAX and SGNJ
-  //                 [VFCPKAB_S:VFCPKCD_D] : return 1'b1; // Vectorial FP cast and pack ops
-  //                 default               : return 1'b0; // all other ops
+  //                 [VFCPKAB_S:VFCPKCD_D] : return true.B; // Vectorial FP cast and pack ops
+  //                 default               : return false.B; // all other ops
   //             endcase
   //         end else
-  //             return 1'b0
+  //             return false.B
   //     endfunction
   //
   //     def is_amo (fu_op op)
   //         case (op) inside
   //             [AMO_LRW:AMO_MINDU]: begin
-  //                 return 1'b1
+  //                 return true.B
   //             end
-  //             default: return 1'b0
+  //             default: return false.B
   //         endcase
   //     endfunction
   //
@@ -597,34 +702,34 @@ object ariane_pkg
     val branch_predict = new branchpredict_sbe_t() // this field contains branch prediction information regarding the forward branch path
     val ex = new exception_t()                     // this field contains exceptions which might have happened earlier, e.g.: fetch exceptions
   }
-  //
-  //     // ---------------
-  //     // ID/EX/WB Stage
-  //     // ---------------
-  //     typedef struct packed {
-  //         logic [63:0]              pc;            // PC of instruction
-  //         logic [TRANS_ID_BITS-1:0] trans_id;      // this can potentially be simplified, we could index the scoreboard entry
-  //                                                  // with the transaction id in any case make the width more generic
-  //         fu_t                      fu;            // functional unit to use
-  //         fu_op                     op;            // operation to perform in each functional unit
-  //         logic [REG_ADDR_SIZE-1:0] rs1;           // register source address 1
-  //         logic [REG_ADDR_SIZE-1:0] rs2;           // register source address 2
-  //         logic [REG_ADDR_SIZE-1:0] rd;            // register destination address
-  //         logic [63:0]              result;        // for unfinished instructions this field also holds the immediate,
-  //                                                  // for unfinished floating-point that are partly encoded in rs2, this field also holds rs2
-  //                                                  // for unfinished floating-point fused operations (FMADD, FMSUB, FNMADD, FNMSUB)
-  //                                                  // this field holds the address of the third operand from the floating-point register file
-  //         logic                     valid;         // is the result valid
-  //         logic                     use_imm;       // should we use the immediate as operand b?
-  //         logic                     use_zimm;      // use zimm as operand a
-  //         logic                     use_pc;        // set if we need to use the PC as operand a, PC from exception
-  //         exception_t               ex;            // exception has occurred
-  //         branchpredict_sbe_t       bp;            // branch predict scoreboard data structure
-  //         logic                     is_compressed; // signals a compressed instructions, we need this information at the commit stage if
-  //                                                  // we want jump accordingly e.g.: +4, +2
-  //     } scoreboard_entry_t
-  //
-  //
+
+  // ---------------
+  // ID/EX/WB Stage
+  // ---------------
+  class scoreboard_entry_t extends Bundle {
+    val pc = UInt(64.W)                  // PC of instruction
+    val trans_id = UInt(TRANS_ID_BITS.W) // this can potentially be simplified, we could index the scoreboard entry
+                                         // with the transaction id in any case make the width more generic
+    val fu  = fu_t(4.W)                  // functional unit to use
+    val op  = fu_op                      // operation to perform in each functional unit
+    val rs1 = UInt(REG_ADDR_SIZE.W)      // register source address 1
+    val rs2 = UInt(REG_ADDR_SIZE.W)      // register source address 2
+    val rd  = UInt(REG_ADDR_SIZE.W)      // register destination address
+    val result = UInt(64.W)              // for unfinished instructions this field also holds the immediate,
+                                         // for unfinished floating-point that are partly encoded in rs2, this field also holds rs2
+                                         // for unfinished floating-point fused operations (FMADD, FMSUB, FNMADD, FNMSUB)
+                                         // this field holds the address of the third operand from the floating-point register file
+    val valid    = Bool()                // is the result valid
+    val use_imm  = Bool()                // should we use the immediate as operand b?
+    val use_zimm = Bool()                // use zimm as operand a
+    val use_pc   = Bool()                // set if we need to use the PC as operand a, PC from exception
+    val ex = new exception_t()           // exception has occurred
+    val bp = new branchpredict_sbe_t()   // branch predict scoreboard data structure
+    val is_compressed = Bool()           // signals a compressed instructions, we need this information at the commit stage if
+                                         // we want jump accordingly e.g.: +4, +2
+  }
+
+
   //     typedef struct packed {
   //         logic                  valid;      // valid flag
   //         logic                  is_2M;      //

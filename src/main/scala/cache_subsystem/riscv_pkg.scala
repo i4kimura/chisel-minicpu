@@ -23,29 +23,26 @@ import chisel3.Bool
 
 object riscv_pkg
 {
-  // // --------------------
-  // // Privilege Spec
-  // // --------------------
-  // typedef enum logic[1:0] {
-  //   PRIV_LVL_M = 2'b11,
-  //   PRIV_LVL_S = 2'b01,
-  //   PRIV_LVL_U = 2'b00
-  // } priv_lvl_t;
-  //
-  // // type which holds xlen
-  // typedef enum logic [1:0] {
-  //     XLEN_32  = 2'b01,
-  //     XLEN_64  = 2'b10,
-  //     XLEN_128 = 2'b11
-  // } xlen_t;
-  //
-  // typedef enum logic [1:0] {
-  //     Off     = 2'b00,
-  //     Initial = 2'b01,
-  //     Clean   = 2'b10,
-  //     Dirty   = 2'b11
-  // } xs_t;
-  //
+  // --------------------
+  // Privilege Spec
+  // --------------------
+  type priv_lvl_t = UInt
+  val PRIV_LVL_M:priv_lvl_t = 3.U(2.W)
+  val PRIV_LVL_S:priv_lvl_t = 1.U(2.W)
+  val PRIV_LVL_U:priv_lvl_t = 0.U(2.W)
+
+  // type which holds xlen
+  type xlen_t = UInt
+  val XLEN_32 :xlen_t = 1.U(2.W)
+  val XLEN_64 :xlen_t = 2.U(2.W)
+  val XLEN_128:xlen_t = 3.U(2.W)
+
+  type xs_t = UInt
+  val Off    :xs_t = 0.U(2.W)
+  val Initial:xs_t = 1.U(2.W)
+  val Clean  :xs_t = 2.U(2.W)
+  val Dirty  :xs_t = 3.U(2.W)
+
   // typedef struct packed {
   //     logic         sd;     // signal dirty state - read-only
   //     logic [62:36] wpri4;  // writes preserved reads ignored
@@ -103,95 +100,146 @@ object riscv_pkg
   //     logic [43:0] ppn;
   // } satp_t;
   //
-  // // --------------------
-  // // Instruction Types
-  // // --------------------
-  // typedef struct packed {
-  //     logic [31:25] funct7;
-  //     logic [24:20] rs2;
-  //     logic [19:15] rs1;
-  //     logic [14:12] funct3;
-  //     logic [11:7]  rd;
-  //     logic [6:0]   opcode;
-  // } rtype_t;
-  //
-  // typedef struct packed {
-  //     logic [31:27] rs3;
-  //     logic [26:25] funct2;
-  //     logic [24:20] rs2;
-  //     logic [19:15] rs1;
-  //     logic [14:12] funct3;
-  //     logic [11:7]  rd;
-  //     logic [6:0]   opcode;
-  // } r4type_t;
-  //
-  // typedef struct packed {
-  //     logic [31:27] funct5;
-  //     logic [26:25] fmt;
-  //     logic [24:20] rs2;
-  //     logic [19:15] rs1;
-  //     logic [14:12] rm;
-  //     logic [11:7]  rd;
-  //     logic [6:0]   opcode;
-  // } rftype_t; // floating-point
-  //
-  // typedef struct packed {
-  //     logic [31:30] funct2;
-  //     logic [29:25] vecfltop;
-  //     logic [24:20] rs2;
-  //     logic [19:15] rs1;
-  //     logic [14:14] repl;
-  //     logic [13:12] vfmt;
-  //     logic [11:7]  rd;
-  //     logic [6:0]   opcode;
-  // } rvftype_t; // vectorial floating-point
-  //
-  // typedef struct packed {
-  //     logic [31:20] imm;
-  //     logic [19:15] rs1;
-  //     logic [14:12] funct3;
-  //     logic [11:7]  rd;
-  //     logic [6:0]   opcode;
-  // } itype_t;
-  //
-  // typedef struct packed {
-  //     logic [31:25] imm;
-  //     logic [24:20] rs2;
-  //     logic [19:15] rs1;
-  //     logic [14:12] funct3;
-  //     logic [11:7]  imm0;
-  //     logic [6:0]   opcode;
-  // } stype_t;
-  //
-  // typedef struct packed {
-  //     logic [31:12] funct3;
-  //     logic [11:7]  rd;
-  //     logic [6:0]   opcode;
-  // } utype_t;
-  //
-  // // atomic instructions
-  // typedef struct packed {
-  //     logic [31:27] funct5;
-  //     logic         aq;
-  //     logic         rl;
-  //     logic [24:20] rs2;
-  //     logic [19:15] rs1;
-  //     logic [14:12] funct3;
-  //     logic [11:7]  rd;
-  //     logic [6:0]   opcode;
-  // } atype_t;
-  //
-  // typedef union packed {
-  //     logic [31:0]   instr;
-  //     rtype_t        rtype;
-  //     r4type_t       r4type;
-  //     rftype_t       rftype;
-  //     rvftype_t      rvftype;
-  //     itype_t        itype;
-  //     stype_t        stype;
-  //     utype_t        utype;
-  //     atype_t        atype;
-  // } instruction_t;
+  // --------------------
+  // Instruction Types
+  // --------------------
+  class rtype_t extends Bundle {
+    val funct7 = UInt(7.W)
+    val rs2    = UInt(5.W)
+    val rs1    = UInt(5.W)
+    val funct3 = UInt(3.W)
+    val rd     = UInt(5.W)
+    val opcode = UInt(7.W)
+  }
+
+  def rtype_t(in:instruction_t) : rtype_t = {
+    val rtype_v = Wire(new rtype_t)
+    rtype_v.funct7 := in.instr(31,25)
+    rtype_v.rs2    := in.instr(24,20)
+    rtype_v.rs1    := in.instr(19,15)
+    rtype_v.funct3 := in.instr(14,12)
+    rtype_v.rd     := in.instr(11, 7)
+    rtype_v.opcode := in.instr( 6, 0)
+
+    return rtype_v
+  }
+
+  class r4type_t extends Bundle {
+    val rs3    = UInt(3.W)
+    val funct2 = UInt(2.W)
+    val rs2    = UInt(5.W)
+    val rs1    = UInt(5.W)
+    val funct3 = UInt(3.W)
+    val rd     = UInt(5.W)
+    val opcode = UInt(7.W)
+  }
+
+  class rftype_t extends Bundle {
+    val funct5 = UInt(5.W)
+    val fmt    = UInt(2.W)
+    val rs2    = UInt(5.W)
+    val rs1    = UInt(5.W)
+    val rm     = UInt(3.W)
+    val rd     = UInt(5.W)
+    val opcode = UInt(7.W)
+  } // floating-point
+
+  class rvftype_t extends Bundle {
+    val funct2   = UInt(2.W)
+    val vecfltop = UInt(5.W)
+    val rs2      = UInt(5.W)
+    val rs1      = UInt(5.W)
+    val repl     = Bool()
+    val vfmt     = UInt(2.W)
+    val rd       = UInt(5.W)
+    val opcode   = UInt(7.W)
+  }  // vectorial floating-point
+
+
+  def rvftype_t(in:instruction_t) : rvftype_t = {
+    val rvftype_v = Wire(new rvftype_t)
+    rvftype_v.funct2   := in.instr(31,30)
+    rvftype_v.vecfltop := in.instr(29,25)
+    rvftype_v.rs2      := in.instr(24,20)
+    rvftype_v.rs1      := in.instr(19,15)
+    rvftype_v.repl     := in.instr(14,14)
+    rvftype_v.vfmt     := in.instr(13,12)
+    rvftype_v.rd       := in.instr(11, 7)
+    rvftype_v.opcode   := in.instr( 6, 0)
+
+    return rvftype_v
+  }
+
+
+  class itype_t extends Bundle {
+    val imm    = UInt(12.W)
+    val rs1    = UInt(5.W)
+    val funct3 = UInt(3.W)
+    val rd     = UInt(5.W)
+    val opcode = UInt(7.W)
+  }
+
+  def itype_t(in:instruction_t) : itype_t = {
+    val itype_v = Wire(new itype_t)
+    itype_v.imm    := in.instr(31,20)
+    itype_v.rs1    := in.instr(19,15)
+    itype_v.funct3 := in.instr(14,12)
+    itype_v.rd     := in.instr(11, 7)
+    itype_v.opcode := in.instr( 6, 0)
+
+    return itype_v
+  }
+
+  class stype_t extends Bundle {
+    val imm    = UInt(7.W)
+    val rs2    = UInt(5.W)
+    val rs1    = UInt(5.W)
+    val funct3 = UInt(3.W)
+    val imm0   = UInt(5.W)
+    val opcode = UInt(7.W)
+  }
+
+  def stype_t(in:instruction_t) : stype_t = {
+    val stype_v = Wire(new stype_t)
+    stype_v.imm    := in.instr(31,25)
+    stype_v.rs2    := in.instr(24,20)
+    stype_v.rs1    := in.instr(19,15)
+    stype_v.funct3 := in.instr(14,12)
+    stype_v.imm0   := in.instr(11, 7)
+    stype_v.opcode := in.instr( 6, 0)
+
+    return stype_v
+  }
+
+  class utype_t extends Bundle {
+    val funct3 = UInt(10.W)
+    val rd     = UInt(5.W)
+    val opcode = UInt(7.W)
+  }
+
+  // atomic instructions
+  class atype_t extends Bundle {
+    val funct5 = UInt(5.W)
+    val aq     = UInt(1.W)
+    val rl     = UInt(1.W)
+    val rs2    = UInt(5.W)
+    val rs1    = UInt(5.W)
+    val funct3 = UInt(3.W)
+    val rd     = UInt(5.W)
+    val opcode = UInt(7.W)
+  }
+
+  class instruction_t extends Bundle {
+    val instr = UInt(32.W)
+    // val  rtype_t        rtype
+    // val  r4type_t       r4type
+    // val  rftype_t       rftype
+    // val  rvftype_t      rvftype
+    // val  itype_t        itype
+    // val  stype_t        stype
+    // val  utype_t        utype
+    // val  atype_t        atype
+  }
 
   // --------------------
   // Opcodes
@@ -266,19 +314,19 @@ object riscv_pkg
   // // Virtual Memory
   // // ----------------------
   // // memory management, pte
-  // typedef struct packed {
-  //     logic [9:0]  reserved;
-  //     logic [43:0] ppn;
-  //     logic [1:0]  rsw;
-  //     logic d;
-  //     logic a;
-  //     logic g;
-  //     logic u;
-  //     logic x;
-  //     logic w;
-  //     logic r;
-  //     logic v;
-  // } pte_t;
+  // class extends Bundle {
+  //     logic [9:0]  reserved
+  //     logic [43:0] ppn
+  //     logic [1:0]  rsw
+  //     logic d
+  //     logic a
+  //     logic g
+  //     logic u
+  //     logic x
+  //     logic w
+  //     logic r
+  //     logic v
+  // } pte_t
   //
   // ----------------------
   // Exception Cause Codes
@@ -299,26 +347,26 @@ object riscv_pkg
   val STORE_PAGE_FAULT      = 15.U(64.W) // Store page fault
   val DEBUG_REQUEST         = 24.U(64.W) // Debug request
 
-  // val int unsigned IRQ_S_SOFT  = 1;
-  // val int unsigned IRQ_M_SOFT  = 3;
-  // val int unsigned IRQ_S_TIMER = 5;
-  // val int unsigned IRQ_M_TIMER = 7;
-  // val int unsigned IRQ_S_EXT   = 9;
-  // val int unsigned IRQ_M_EXT   = 11;
+  // val int unsigned IRQ_S_SOFT  = 1
+  // val int unsigned IRQ_M_SOFT  = 3
+  // val int unsigned IRQ_S_TIMER = 5
+  // val int unsigned IRQ_M_TIMER = 7
+  // val int unsigned IRQ_S_EXT   = 9
+  // val int unsigned IRQ_M_EXT   = 11
   //
-  // val logic [63:0] MIP_SSIP = 1 << IRQ_S_SOFT;
-  // val logic [63:0] MIP_MSIP = 1 << IRQ_M_SOFT;
-  // val logic [63:0] MIP_STIP = 1 << IRQ_S_TIMER;
-  // val logic [63:0] MIP_MTIP = 1 << IRQ_M_TIMER;
-  // val logic [63:0] MIP_SEIP = 1 << IRQ_S_EXT;
-  // val logic [63:0] MIP_MEIP = 1 << IRQ_M_EXT;
+  // val logic [63:0] MIP_SSIP = 1 << IRQ_S_SOFT
+  // val logic [63:0] MIP_MSIP = 1 << IRQ_M_SOFT
+  // val logic [63:0] MIP_STIP = 1 << IRQ_S_TIMER
+  // val logic [63:0] MIP_MTIP = 1 << IRQ_M_TIMER
+  // val logic [63:0] MIP_SEIP = 1 << IRQ_S_EXT
+  // val logic [63:0] MIP_MEIP = 1 << IRQ_M_EXT
   //
-  // val logic [63:0] S_SW_INTERRUPT    = (1 << 63) | IRQ_S_SOFT;
-  // val logic [63:0] M_SW_INTERRUPT    = (1 << 63) | IRQ_M_SOFT;
-  // val logic [63:0] S_TIMER_INTERRUPT = (1 << 63) | IRQ_S_TIMER;
-  // val logic [63:0] M_TIMER_INTERRUPT = (1 << 63) | IRQ_M_TIMER;
-  // val logic [63:0] S_EXT_INTERRUPT   = (1 << 63) | IRQ_S_EXT;
-  // val logic [63:0] M_EXT_INTERRUPT   = (1 << 63) | IRQ_M_EXT;
+  // val logic [63:0] S_SW_INTERRUPT    = (1 << 63) | IRQ_S_SOFT
+  // val logic [63:0] M_SW_INTERRUPT    = (1 << 63) | IRQ_M_SOFT
+  // val logic [63:0] S_TIMER_INTERRUPT = (1 << 63) | IRQ_S_TIMER
+  // val logic [63:0] M_TIMER_INTERRUPT = (1 << 63) | IRQ_M_TIMER
+  // val logic [63:0] S_EXT_INTERRUPT   = (1 << 63) | IRQ_S_EXT
+  // val logic [63:0] M_EXT_INTERRUPT   = (1 << 63) | IRQ_M_EXT
   //
   // // -----
   // // CSRs
@@ -439,44 +487,44 @@ object riscv_pkg
   //     CSR_HPM_COUNTER_29 = 12'hC1D,  // reserved
   //     CSR_HPM_COUNTER_30 = 12'hC1E,  // reserved
   //     CSR_HPM_COUNTER_31 = 12'hC1F  // reserved
-  // } csr_reg_t;
+  // } csr_reg_t
   //
-  // val logic [63:0] SSTATUS_UIE  = 64'h00000001;
-  // val logic [63:0] SSTATUS_SIE  = 64'h00000002;
-  // val logic [63:0] SSTATUS_SPIE = 64'h00000020;
-  // val logic [63:0] SSTATUS_SPP  = 64'h00000100;
-  // val logic [63:0] SSTATUS_FS   = 64'h00006000;
-  // val logic [63:0] SSTATUS_XS   = 64'h00018000;
-  // val logic [63:0] SSTATUS_SUM  = 64'h00040000;
-  // val logic [63:0] SSTATUS_MXR  = 64'h00080000;
-  // val logic [63:0] SSTATUS_UPIE = 64'h00000010;
-  // val logic [63:0] SSTATUS_UXL  = 64'h0000000300000000;
-  // val logic [63:0] SSTATUS64_SD = 64'h8000000000000000;
-  // val logic [63:0] SSTATUS32_SD = 64'h80000000;
+  // val logic [63:0] SSTATUS_UIE  = 64'h00000001
+  // val logic [63:0] SSTATUS_SIE  = 64'h00000002
+  // val logic [63:0] SSTATUS_SPIE = 64'h00000020
+  // val logic [63:0] SSTATUS_SPP  = 64'h00000100
+  // val logic [63:0] SSTATUS_FS   = 64'h00006000
+  // val logic [63:0] SSTATUS_XS   = 64'h00018000
+  // val logic [63:0] SSTATUS_SUM  = 64'h00040000
+  // val logic [63:0] SSTATUS_MXR  = 64'h00080000
+  // val logic [63:0] SSTATUS_UPIE = 64'h00000010
+  // val logic [63:0] SSTATUS_UXL  = 64'h0000000300000000
+  // val logic [63:0] SSTATUS64_SD = 64'h8000000000000000
+  // val logic [63:0] SSTATUS32_SD = 64'h80000000
   //
-  // val logic [63:0] MSTATUS_UIE  = 64'h00000001;
-  // val logic [63:0] MSTATUS_SIE  = 64'h00000002;
-  // val logic [63:0] MSTATUS_HIE  = 64'h00000004;
-  // val logic [63:0] MSTATUS_MIE  = 64'h00000008;
-  // val logic [63:0] MSTATUS_UPIE = 64'h00000010;
-  // val logic [63:0] MSTATUS_SPIE = 64'h00000020;
-  // val logic [63:0] MSTATUS_HPIE = 64'h00000040;
-  // val logic [63:0] MSTATUS_MPIE = 64'h00000080;
-  // val logic [63:0] MSTATUS_SPP  = 64'h00000100;
-  // val logic [63:0] MSTATUS_HPP  = 64'h00000600;
-  // val logic [63:0] MSTATUS_MPP  = 64'h00001800;
-  // val logic [63:0] MSTATUS_FS   = 64'h00006000;
-  // val logic [63:0] MSTATUS_XS   = 64'h00018000;
-  // val logic [63:0] MSTATUS_MPRV = 64'h00020000;
-  // val logic [63:0] MSTATUS_SUM  = 64'h00040000;
-  // val logic [63:0] MSTATUS_MXR  = 64'h00080000;
-  // val logic [63:0] MSTATUS_TVM  = 64'h00100000;
-  // val logic [63:0] MSTATUS_TW   = 64'h00200000;
-  // val logic [63:0] MSTATUS_TSR  = 64'h00400000;
-  // val logic [63:0] MSTATUS32_SD = 64'h80000000;
-  // val logic [63:0] MSTATUS_UXL  = 64'h0000000300000000;
-  // val logic [63:0] MSTATUS_SXL  = 64'h0000000C00000000;
-  // val logic [63:0] MSTATUS64_SD = 64'h8000000000000000;
+  // val logic [63:0] MSTATUS_UIE  = 64'h00000001
+  // val logic [63:0] MSTATUS_SIE  = 64'h00000002
+  // val logic [63:0] MSTATUS_HIE  = 64'h00000004
+  // val logic [63:0] MSTATUS_MIE  = 64'h00000008
+  // val logic [63:0] MSTATUS_UPIE = 64'h00000010
+  // val logic [63:0] MSTATUS_SPIE = 64'h00000020
+  // val logic [63:0] MSTATUS_HPIE = 64'h00000040
+  // val logic [63:0] MSTATUS_MPIE = 64'h00000080
+  // val logic [63:0] MSTATUS_SPP  = 64'h00000100
+  // val logic [63:0] MSTATUS_HPP  = 64'h00000600
+  // val logic [63:0] MSTATUS_MPP  = 64'h00001800
+  // val logic [63:0] MSTATUS_FS   = 64'h00006000
+  // val logic [63:0] MSTATUS_XS   = 64'h00018000
+  // val logic [63:0] MSTATUS_MPRV = 64'h00020000
+  // val logic [63:0] MSTATUS_SUM  = 64'h00040000
+  // val logic [63:0] MSTATUS_MXR  = 64'h00080000
+  // val logic [63:0] MSTATUS_TVM  = 64'h00100000
+  // val logic [63:0] MSTATUS_TW   = 64'h00200000
+  // val logic [63:0] MSTATUS_TSR  = 64'h00400000
+  // val logic [63:0] MSTATUS32_SD = 64'h80000000
+  // val logic [63:0] MSTATUS_UXL  = 64'h0000000300000000
+  // val logic [63:0] MSTATUS_SXL  = 64'h0000000C00000000
+  // val logic [63:0] MSTATUS64_SD = 64'h8000000000000000
 
   // typedef enum logic [2:0] {
   //     CSRRW  = 3'h1,
@@ -485,158 +533,158 @@ object riscv_pkg
   //     CSRRWI = 3'h5,
   //     CSRRSI = 3'h6,
   //     CSRRCI = 3'h7
-  // } csr_op_t;
+  // } csr_op_t
   //
   // // decoded CSR address
-  // typedef struct packed {
-  //     logic [1:0]  rw;
-  //     priv_lvl_t   priv_lvl;
-  //     logic  [7:0] address;
-  // } csr_addr_t;
+  // class extends Bundle {
+  //     logic [1:0]  rw
+  //     priv_lvl_t   priv_lvl
+  //     logic  [7:0] address
+  // } csr_addr_t
   //
   // typedef union packed {
-  //     csr_reg_t   address;
-  //     csr_addr_t  csr_decode;
-  // } csr_t;
+  //     csr_reg_t   address
+  //     csr_addr_t  csr_decode
+  // } csr_t
   //
   // // Floating-Point control and status register (32-bit!)
-  // typedef struct packed {
+  // class extends Bundle {
   //     logic [31:15] reserved;  // reserved for L extension, return 0 otherwise
   //     logic [6:0]   fprec;     // div/sqrt precision control
   //     logic [2:0]   frm;       // float rounding mode
   //     logic [4:0]   fflags;    // float exception flags
-  // } fcsr_t;
+  // } fcsr_t
   //
   // // -----
   // // Debug
   // // -----
-  // typedef struct packed {
-  //     logic [31:28]     xdebugver;
-  //     logic [27:16]     zero2;
-  //     logic             ebreakm;
-  //     logic             zero1;
-  //     logic             ebreaks;
-  //     logic             ebreaku;
-  //     logic             stepie;
-  //     logic             stopcount;
-  //     logic             stoptime;
-  //     logic [8:6]       cause;
-  //     logic             zero0;
-  //     logic             mprven;
-  //     logic             nmip;
-  //     logic             step;
-  //     priv_lvl_t        prv;
-  // } dcsr_t;
+  // class extends Bundle {
+  //     logic [31:28]     xdebugver
+  //     logic [27:16]     zero2
+  //     logic             ebreakm
+  //     logic             zero1
+  //     logic             ebreaks
+  //     logic             ebreaku
+  //     logic             stepie
+  //     logic             stopcount
+  //     logic             stoptime
+  //     logic [8:6]       cause
+  //     logic             zero0
+  //     logic             mprven
+  //     logic             nmip
+  //     logic             step
+  //     priv_lvl_t        prv
+  // } dcsr_t
   //
   // // Instruction Generation *incomplete*
-  // function automatic logic [31:0] jal (logic[4:0] rd, logic [20:0] imm);
+  // function automatic logic [31:0] jal (logic[4:0] rd, logic [20:0] imm)
   //     // OpCode Jal
-  //     return {imm[20], imm[10:1], imm[11], imm[19:12], rd, 7'h6f};
+  //     return {imm[20], imm[10:1], imm[11], imm[19:12], rd, 7'h6f}
   // endfunction
   //
-  // function automatic logic [31:0] jalr (logic[4:0] rd, logic[4:0] rs1, logic [11:0] offset);
+  // function automatic logic [31:0] jalr (logic[4:0] rd, logic[4:0] rs1, logic [11:0] offset)
   //     // OpCode Jal
-  //     return {offset[11:0], rs1, 3'b0, rd, 7'h67};
+  //     return {offset[11:0], rs1, 3'b0, rd, 7'h67}
   // endfunction
   //
-  // function automatic logic [31:0] andi (logic[4:0] rd, logic[4:0] rs1, logic [11:0] imm);
+  // function automatic logic [31:0] andi (logic[4:0] rd, logic[4:0] rs1, logic [11:0] imm)
   //     // OpCode andi
-  //     return {imm[11:0], rs1, 3'h7, rd, 7'h13};
+  //     return {imm[11:0], rs1, 3'h7, rd, 7'h13}
   // endfunction
   //
-  // function automatic logic [31:0] slli (logic[4:0] rd, logic[4:0] rs1, logic [5:0] shamt);
+  // function automatic logic [31:0] slli (logic[4:0] rd, logic[4:0] rs1, logic [5:0] shamt)
   //     // OpCode slli
-  //     return {6'b0, shamt[5:0], rs1, 3'h1, rd, 7'h13};
+  //     return {6'b0, shamt[5:0], rs1, 3'h1, rd, 7'h13}
   // endfunction
   //
-  // function automatic logic [31:0] srli (logic[4:0] rd, logic[4:0] rs1, logic [5:0] shamt);
+  // function automatic logic [31:0] srli (logic[4:0] rd, logic[4:0] rs1, logic [5:0] shamt)
   //     // OpCode srli
-  //     return {6'b0, shamt[5:0], rs1, 3'h5, rd, 7'h13};
+  //     return {6'b0, shamt[5:0], rs1, 3'h5, rd, 7'h13}
   // endfunction
   //
-  // function automatic logic [31:0] load (logic [2:0] size, logic[4:0] dest, logic[4:0] base, logic [11:0] offset);
+  // function automatic logic [31:0] load (logic [2:0] size, logic[4:0] dest, logic[4:0] base, logic [11:0] offset)
   //     // OpCode Load
-  //     return {offset[11:0], base, size, dest, 7'h03};
+  //     return {offset[11:0], base, size, dest, 7'h03}
   // endfunction
   //
-  // function automatic logic [31:0] auipc (logic[4:0] rd, logic [20:0] imm);
+  // function automatic logic [31:0] auipc (logic[4:0] rd, logic [20:0] imm)
   //     // OpCode Auipc
-  //     return {imm[20], imm[10:1], imm[11], imm[19:12], rd, 7'h17};
+  //     return {imm[20], imm[10:1], imm[11], imm[19:12], rd, 7'h17}
   // endfunction
   //
-  // function automatic logic [31:0] store (logic [2:0] size, logic[4:0] src, logic[4:0] base, logic [11:0] offset);
+  // function automatic logic [31:0] store (logic [2:0] size, logic[4:0] src, logic[4:0] base, logic [11:0] offset)
   //     // OpCode Store
-  //     return {offset[11:5], src, base, size, offset[4:0], 7'h23};
+  //     return {offset[11:5], src, base, size, offset[4:0], 7'h23}
   // endfunction
   //
-  // function automatic logic [31:0] float_load (logic [2:0] size, logic[4:0] dest, logic[4:0] base, logic [11:0] offset);
+  // function automatic logic [31:0] float_load (logic [2:0] size, logic[4:0] dest, logic[4:0] base, logic [11:0] offset)
   //     // OpCode Load
-  //     return {offset[11:0], base, size, dest, 7'b00_001_11};
+  //     return {offset[11:0], base, size, dest, 7'b00_001_11}
   // endfunction
   //
-  // function automatic logic [31:0] float_store (logic [2:0] size, logic[4:0] src, logic[4:0] base, logic [11:0] offset);
+  // function automatic logic [31:0] float_store (logic [2:0] size, logic[4:0] src, logic[4:0] base, logic [11:0] offset)
   //     // OpCode Store
-  //     return {offset[11:5], src, base, size, offset[4:0], 7'b01_001_11};
+  //     return {offset[11:5], src, base, size, offset[4:0], 7'b01_001_11}
   // endfunction
   //
-  // function automatic logic [31:0] csrw (csr_reg_t csr, logic[4:0] rs1);
+  // function automatic logic [31:0] csrw (csr_reg_t csr, logic[4:0] rs1)
   //                      // CSRRW, rd, OpCode System
-  //     return {csr, rs1, 3'h1, 5'h0, 7'h73};
+  //     return {csr, rs1, 3'h1, 5'h0, 7'h73}
   // endfunction
   //
-  // function automatic logic [31:0] csrr (csr_reg_t csr, logic [4:0] dest);
+  // function automatic logic [31:0] csrr (csr_reg_t csr, logic [4:0] dest)
   //               // rs1, CSRRS, rd, OpCode System
-  //     return {csr, 5'h0, 3'h2, dest, 7'h73};
+  //     return {csr, 5'h0, 3'h2, dest, 7'h73}
   // endfunction
   //
-  // function automatic logic [31:0] ebreak ();
-  //     return 32'h00100073;
+  // function automatic logic [31:0] ebreak ()
+  //     return 32'h00100073
   // endfunction
   //
-  // function automatic logic [31:0] nop ();
-  //     return 32'h00000013;
+  // function automatic logic [31:0] nop ()
+  //     return 32'h00000013
   // endfunction
   //
-  // function automatic logic [31:0] illegal ();
-  //     return 32'h00000000;
+  // function automatic logic [31:0] illegal ()
+  //     return 32'h00000000
   // endfunction
   //
   //
   // // trace log compatible to spikes commit log feature
   // // pragma translate_off
-  // function string spikeCommitLog(logic [63:0] pc, priv_lvl_t priv_lvl, logic [31:0] instr, logic [4:0] rd, logic [63:0] result, logic rd_fpr);
-  //     string rd_s;
-  //     string instr_word;
+  // function string spikeCommitLog(logic [63:0] pc, priv_lvl_t priv_lvl, logic [31:0] instr, logic [4:0] rd, logic [63:0] result, logic rd_fpr)
+  //     string rd_s
+  //     string instr_word
   //
-  //     automatic string rf_s = rd_fpr ? "f" : "x";
+  //     automatic string rf_s = rd_fpr ? "f" : "x"
   //
   //     if (instr[1:0] != 2'b11) begin
-  //       instr_word = $sformatf("(0x%h)", instr[15:0]);
+  //       instr_word = $sformatf("(0x%h)", instr[15:0])
   //     end else begin
-  //       instr_word = $sformatf("(0x%h)", instr);
+  //       instr_word = $sformatf("(0x%h)", instr)
   //     end
   //
-  //     if (rd < 10) rd_s = $sformatf("%s %0d", rf_s, rd);
-  //     else rd_s = $sformatf("%s%0d", rf_s, rd);
+  //     if (rd < 10) rd_s = $sformatf("%s %0d", rf_s, rd)
+  //     else rd_s = $sformatf("%s%0d", rf_s, rd)
   //
   //     if (rd_fpr || rd != 0) begin
   //         // 0 0x0000000080000118 (0xeecf8f93) x31 0x0000000080004000
-  //         return $sformatf("%d 0x%h %s %s 0x%h\n", priv_lvl, pc, instr_word, rd_s, result);
+  //         return $sformatf("%d 0x%h %s %s 0x%h\n", priv_lvl, pc, instr_word, rd_s, result)
   //     end else begin
   //         // 0 0x000000008000019c (0x0040006f)
-  //         return $sformatf("%d 0x%h %s\n", priv_lvl, pc, instr_word);
+  //         return $sformatf("%d 0x%h %s\n", priv_lvl, pc, instr_word)
   //     end
   // endfunction
   // // pragma translate_on
   //
-  // typedef struct packed {
-  //     byte priv;
-  //     longint unsigned pc;
-  //     byte is_fp;
-  //     byte rd;
-  //     longint unsigned data;
-  //     int unsigned instr;
-  //     byte was_exception;
-  // } commit_log_t;
+  // class extends Bundle {
+  //     byte priv
+  //     longint unsigned pc
+  //     byte is_fp
+  //     byte rd
+  //     longint unsigned data
+  //     int unsigned instr
+  //     byte was_exception
+  // } commit_log_t
 
 }
