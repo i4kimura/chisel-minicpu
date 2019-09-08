@@ -1,9 +1,179 @@
-package cache_subsystem
+package ariane
 
 import chisel3._
 import chisel3.util._
 import chisel3.Bool
 
+
+object ariane_fu_op {
+  // ---------------
+  // EX Stage
+  // ---------------
+  type fu_op_t = UInt
+  // basic ALU op
+  val ADD  = 0.U(7.W)
+  val SUB  = 1.U(7.W)
+  val ADDW = 2.U(7.W)
+  val SUBW = 3.U(7.W)
+  // logic operations
+  val XORL = 4.U(7.W)
+  val ORL  = 5.U(7.W)
+  val ANDL = 6.U(7.W)
+  // shifts
+  val SRA  =  7.U(7.W)
+  val SRL  =  8.U(7.W)
+  val SLL  =  9.U(7.W)
+  val SRLW = 10.U(7.W)
+  val SLLW = 11.U(7.W)
+  val SRAW = 12.U(7.W)
+  // comparisons
+  val LTS = 13.U(7.W)
+  val LTU = 14.U(7.W)
+  val GES = 15.U(7.W)
+  val GEU = 16.U(7.W)
+  val EQ  = 17.U(7.W)
+  val NE  = 18.U(7.W)
+  // jumps
+  val JALR   = 19.U(7.W)
+  val BRANCH = 20.U(7.W)
+  // set lower than operations
+  val SLTS = 21.U(7.W)
+  val SLTU = 22.U(7.W)
+  // CSR functions
+  val MRET       = 23.U(7.W)
+  val SRET       = 24.U(7.W)
+  val DRET       = 25.U(7.W)
+  val ECALL      = 26.U(7.W)
+  val WFI        = 27.U(7.W)
+  val FENCE      = 28.U(7.W)
+  val FENCE_I    = 29.U(7.W)
+  val SFENCE_VMA = 30.U(7.W)
+  val CSR_WRITE  = 31.U(7.W)
+  val CSR_READ   = 32.U(7.W)
+  val CSR_SET    = 33.U(7.W)
+  val CSR_CLEAR  = 34.U(7.W)
+  // LSU functions
+  val LD  = 35.U(7.W)
+  val SD  = 36.U(7.W)
+  val LW  = 37.U(7.W)
+  val LWU = 38.U(7.W)
+  val SW  = 39.U(7.W)
+  val LH  = 40.U(7.W)
+  val LHU = 41.U(7.W)
+  val SH  = 42.U(7.W)
+  val LB  = 43.U(7.W)
+  val SB  = 44.U(7.W)
+  val LBU = 45.U(7.W)
+  // Atomic Memory Operations
+  val AMO_LRW    = 46.U(7.W)
+  val AMO_LRD    = 47.U(7.W)
+  val AMO_SCW    = 48.U(7.W)
+  val AMO_SCD    = 49.U(7.W)
+  val AMO_SWAPW  = 50.U(7.W)
+  val AMO_ADDW   = 51.U(7.W)
+  val AMO_ANDW   = 52.U(7.W)
+  val AMO_ORW    = 53.U(7.W)
+  val AMO_XORW   = 54.U(7.W)
+  val AMO_MAXW   = 55.U(7.W)
+  val AMO_MAXWU  = 56.U(7.W)
+  val AMO_MINW   = 57.U(7.W)
+  val AMO_MINWU  = 58.U(7.W)
+  val AMO_SWAPD  = 59.U(7.W)
+  val AMO_ADDD   = 60.U(7.W)
+  val AMO_ANDD   = 61.U(7.W)
+  val AMO_ORD    = 62.U(7.W)
+  val AMO_XORD   = 63.U(7.W)
+  val AMO_MAXD   = 64.U(7.W)
+  val AMO_MAXDU  = 65.U(7.W)
+  val AMO_MIND   = 66.U(7.W)
+  val AMO_MINDU  = 67.U(7.W)
+  // Multiplications
+  val MUL    = 68.U(7.W)
+  val MULH   = 69.U(7.W)
+  val MULHU  = 70.U(7.W)
+  val MULHSU = 71.U(7.W)
+  val MULW   = 72.U(7.W)
+  // Divisions
+  val DIV   = 73.U(7.W)
+  val DIVU  = 74.U(7.W)
+  val DIVW  = 75.U(7.W)
+  val DIVUW = 76.U(7.W)
+  val REM   = 77.U(7.W)
+  val REMU  = 78.U(7.W)
+  val REMW  = 79.U(7.W)
+  val REMUW = 80.U(7.W)
+  // Floating-Point Load and Store Instructions
+  val FLD = 81.U(7.W)
+  val FLW = 82.U(7.W)
+  val FLH = 83.U(7.W)
+  val FLB = 84.U(7.W)
+  val FSD = 85.U(7.W)
+  val FSW = 86.U(7.W)
+  val FSH = 87.U(7.W)
+  val FSB = 88.U(7.W)
+  // Floating-Point Computational Instructions
+  val FADD     = 89.U(7.W)
+  val FSUB     = 90.U(7.W)
+  val FMUL     = 91.U(7.W)
+  val FDIV     = 92.U(7.W)
+  val FMIN_MAX = 93.U(7.W)
+  val FSQRT    = 94.U(7.W)
+  val FMADD    = 95.U(7.W)
+  val FMSUB    = 96.U(7.W)
+  val FNMSUB   = 97.U(7.W)
+  val FNMADD   = 98.U(7.W)
+  // Floating-Point Conversion and Move Instructions
+  val FCVT_F2I =  99.U(7.W)
+  val FCVT_I2F = 100.U(7.W)
+  val FCVT_F2F = 101.U(7.W)
+  val FSGNJ    = 102.U(7.W)
+  val FMV_F2X  = 103.U(7.W)
+  val FMV_X2F  = 104.U(7.W)
+  // Floating-Point Compare Instructions
+  val FCMP = 105.U(7.W)
+  // Floating-Point Classify Instruction
+  val FCLASS = 106.U(7.W)
+  // Vectorial Floating-Point Instructions that don't directly map onto the scalar ones
+  val VFMIN     = 107.U(7.W)
+  val VFMAX     = 108.U(7.W)
+  val VFSGNJ    = 109.U(7.W)
+  val VFSGNJN   = 110.U(7.W)
+  val VFSGNJX   = 111.U(7.W)
+  val VFEQ      = 112.U(7.W)
+  val VFNE      = 113.U(7.W)
+  val VFLT      = 114.U(7.W)
+  val VFGE      = 115.U(7.W)
+  val VFLE      = 116.U(7.W)
+  val VFGT      = 117.U(7.W)
+  val VFCPKAB_S = 118.U(7.W)
+  val VFCPKCD_S = 119.U(7.W)
+  val VFCPKAB_D = 120.U(7.W)
+  val VFCPKCD_D = 121.U(7.W)
+  object fu_op_t extends UIntFactory {
+    override def apply(): UInt = apply(7.W)
+  }
+}
+
+
+object ariane_fu_t {
+  type fu_t = UInt
+  val NONE      :fu_t = 0.U(4.W)
+  val LOAD      :fu_t = 1.U(4.W)
+  val STORE     :fu_t = 2.U(4.W)
+  val ALU       :fu_t = 3.U(4.W)
+  val CTRL_FLOW :fu_t = 4.U(4.W)
+  val MULT      :fu_t = 5.U(4.W)
+  val CSR       :fu_t = 6.U(4.W)
+  val FPU       :fu_t = 7.U(4.W)
+  val FPU_VEC   :fu_t = 8.U(4.W)
+  object fu_t extends UIntFactory {
+    override def apply(): UInt = apply(4.W)
+  }
+}
+
+
+import ariane_fu_op._
+import ariane_fu_t._
 
 object ariane_pkg
 {
@@ -166,8 +336,8 @@ object ariane_pkg
 
   // TODO: Slowly move those parameters to the new system.
   val NR_SB_ENTRIES = 8 // number of scoreboard entries
-  val TRANS_ID_BITS = log2Ceil(NR_SB_ENTRIES) // depending on the number of scoreboard entries we need that many bits
-                                               // to uniquely identify the entry in the scoreboard
+  val TRANS_ID_BITS = log2Up (NR_SB_ENTRIES) // depending on the number of scoreboard entries we need that many bits
+                                             // to uniquely identify the entry in the scoreboard
   val ASID_WIDTH    = 1
   val BITS_SATURATION_COUNTER = 2
   val NR_COMMIT_PORTS = 2
@@ -259,8 +429,6 @@ object ariane_pkg
 
 
   // 32 registers + 1 bit for re-naming = 6
-  val REG_ADDR_SIZE = 6
-  val NR_WB_PORTS = 4
   //
   //     // static debug hartinfo
   //     val dm::hartinfo_t DebugHartInfo = '{
@@ -400,17 +568,6 @@ object ariane_pkg
     val taken = Bool()
   }
 
-  type fu_t = UInt
-  val NONE     :fu_t = 0.U
-  val LOAD     :fu_t = 1.U
-  val STORE    :fu_t = 2.U
-  val ALU      :fu_t = 3.U
-  val CTRL_FLOW:fu_t = 4.U
-  val MULT     :fu_t = 5.U
-  val CSR      :fu_t = 6.U
-  val FPU      :fu_t = 7.U
-  val FPU_VEC  :fu_t = 8.U
-
   val EXC_OFF_RST      = "h80".U
 
   val SupervisorIrq = 1
@@ -447,160 +604,16 @@ object ariane_pkg
   // val DCACHE_SET_ASSOC  : Int = 8
   // `endif
 
-  // ---------------
-  // EX Stage
-  // ---------------
-  type fu_op = UInt
-  // basic ALU op
-  val ADD  = 0.U
-  val SUB  = 1.U
-  val ADDW = 2.U
-  val SUBW = 3.U
-  // logic operations
-  val XORL = 4.U
-  val ORL  = 5.U
-  val ANDL = 6.U
-  // shifts
-  val SRA  =  7.U
-  val SRL  =  8.U
-  val SLL  =  9.U
-  val SRLW = 10.U
-  val SLLW = 11.U
-  val SRAW = 12.U
-  // comparisons
-  val LTS = 13.U
-  val LTU = 14.U
-  val GES = 15.U
-  val GEU = 16.U
-  val EQ  = 17.U
-  val NE  = 18.U
-  // jumps
-  val JALR   = 19.U
-  val BRANCH = 20.U
-  // set lower than operations
-  val SLTS = 21.U
-  val SLTU = 22.U
-  // CSR functions
-  val MRET       = 23.U
-  val SRET       = 24.U
-  val DRET       = 25.U
-  val ECALL      = 26.U
-  val WFI        = 27.U
-  val FENCE      = 28.U
-  val FENCE_I    = 29.U
-  val SFENCE_VMA = 30.U
-  val CSR_WRITE  = 31.U
-  val CSR_READ   = 32.U
-  val CSR_SET    = 33.U
-  val CSR_CLEAR  = 34.U
-  // LSU functions
-  val LD  = 35.U
-  val SD  = 36.U
-  val LW  = 37.U
-  val LWU = 38.U
-  val SW  = 39.U
-  val LH  = 40.U
-  val LHU = 41.U
-  val SH  = 42.U
-  val LB  = 43.U
-  val SB  = 44.U
-  val LBU = 45.U
-  // Atomic Memory Operations
-  val AMO_LRW    = 46.U
-  val AMO_LRD    = 47.U
-  val AMO_SCW    = 48.U
-  val AMO_SCD    = 49.U
-  val AMO_SWAPW  = 50.U
-  val AMO_ADDW   = 51.U
-  val AMO_ANDW   = 52.U
-  val AMO_ORW    = 53.U
-  val AMO_XORW   = 54.U
-  val AMO_MAXW   = 55.U
-  val AMO_MAXWU  = 56.U
-  val AMO_MINW   = 57.U
-  val AMO_MINWU  = 58.U
-  val AMO_SWAPD  = 59.U
-  val AMO_ADDD   = 60.U
-  val AMO_ANDD   = 61.U
-  val AMO_ORD    = 62.U
-  val AMO_XORD   = 63.U
-  val AMO_MAXD   = 64.U
-  val AMO_MAXDU  = 65.U
-  val AMO_MIND   = 66.U
-  val AMO_MINDU  = 67.U
-  // Multiplications
-  val MUL    = 68.U
-  val MULH   = 69.U
-  val MULHU  = 70.U
-  val MULHSU = 71.U
-  val MULW   = 72.U
-  // Divisions
-  val DIV   = 73.U
-  val DIVU  = 74.U
-  val DIVW  = 75.U
-  val DIVUW = 76.U
-  val REM   = 77.U
-  val REMU  = 78.U
-  val REMW  = 79.U
-  val REMUW = 80.U
-  // Floating-Point Load and Store Instructions
-  val FLD = 81.U
-  val FLW = 82.U
-  val FLH = 83.U
-  val FLB = 84.U
-  val FSD = 85.U
-  val FSW = 86.U
-  val FSH = 87.U
-  val FSB = 88.U
-  // Floating-Point Computational Instructions
-  val FADD     = 89.U
-  val FSUB     = 90.U
-  val FMUL     = 91.U
-  val FDIV     = 92.U
-  val FMIN_MAX = 93.U
-  val FSQRT    = 94.U
-  val FMADD    = 95.U
-  val FMSUB    = 96.U
-  val FNMSUB   = 97.U
-  val FNMADD   = 98.U
-  // Floating-Point Conversion and Move Instructions
-  val FCVT_F2I = 99.U
-  val FCVT_I2F = 100.U
-  val FCVT_F2F = 101.U
-  val FSGNJ    = 102.U
-  val FMV_F2X  = 103.U
-  val FMV_X2F  = 104.U
-  // Floating-Point Compare Instructions
-  val FCMP = 105.U
-  // Floating-Point Classify Instruction
-  val FCLASS = 106.U
-  // Vectorial Floating-Point Instructions that don't directly map onto the scalar ones
-  val VFMIN     = 107.U
-  val VFMAX     = 108.U
-  val VFSGNJ    = 109.U
-  val VFSGNJN   = 110.U
-  val VFSGNJX   = 111.U
-  val VFEQ      = 112.U
-  val VFNE      = 113.U
-  val VFLT      = 114.U
-  val VFGE      = 115.U
-  val VFLE      = 116.U
-  val VFGT      = 117.U
-  val VFCPKAB_S = 118.U
-  val VFCPKCD_S = 119.U
-  val VFCPKAB_D = 120.U
-  val VFCPKCD_D = 121.U
-
   //     typedef struct packed {
   //         fu_t                      fu
-  //         fu_op                     operator
+  //         fu_op_t                     operator
   //         logic [63:0]              operand_a
   //         logic [63:0]              operand_b
   //         logic [63:0]              imm
   //         logic [TRANS_ID_BITS-1:0] trans_id
   //     } fu_data_t
   //
-  //     def is_branch (input fu_op op)
+  //     def is_branch (input fu_op_t op)
   //         unique case (op) inside
   //             EQ, NE, LTS, GES, LTU, GEU: return true.B
   //             default                   : return false.B; // all other ops
@@ -610,7 +623,7 @@ object ariane_pkg
   //     // -------------------------------
   //     // Extract Src/Dst FP Reg from Op
   //     // -------------------------------
-  //     def is_rs1_fpr (input fu_op op)
+  //     def is_rs1_fpr (input fu_op_t op)
   //         if (FP_PRESENT) begin // makes function static for non-fp case
   //             unique case (op) inside
   //                 [FMUL:FNMADD],                   // Computational Operations (except ADD/SUB)
@@ -627,7 +640,7 @@ object ariane_pkg
   //             return false.B
   //     endfunction
   //
-  //     def is_rs2_fpr (input fu_op op)
+  //     def is_rs2_fpr (input fu_op_t op)
   //         if (FP_PRESENT) begin // makes function static for non-fp case
   //             unique case (op) inside
   //                 [FSD:FSB],                       // FP Stores
@@ -644,7 +657,7 @@ object ariane_pkg
   //     endfunction
   //
   //     // ternary operations encode the rs3 address in the imm field, also add/sub
-  //     def is_imm_fpr (input fu_op op)
+  //     def is_imm_fpr (input fu_op_t op)
   //         if (FP_PRESENT) begin // makes function static for non-fp case
   //             unique case (op) inside
   //                 [FADD:FSUB],                         // ADD/SUB need inputs as Operand B/C
@@ -656,7 +669,7 @@ object ariane_pkg
   //             return false.B
   //     endfunction
   //
-  //     def is_rd_fpr (input fu_op op)
+  //     def is_rd_fpr (input fu_op_t op)
   //         if (FP_PRESENT) begin // makes function static for non-fp case
   //             unique case (op) inside
   //                 [FLD:FLB],                           // FP Loads
@@ -673,7 +686,7 @@ object ariane_pkg
   //             return false.B
   //     endfunction
   //
-  //     def is_amo (fu_op op)
+  //     def is_amo (fu_op_t op)
   //         case (op) inside
   //             [AMO_LRW:AMO_MINDU]: begin
   //                 return true.B
@@ -688,33 +701,26 @@ object ariane_pkg
   //         logic [63:0]              data
   //         logic [7:0]               be
   //         fu_t                      fu
-  //         fu_op                     operator
+  //         fu_op_t                     operator
   //         logic [TRANS_ID_BITS-1:0] trans_id
   //     } lsu_ctrl_t
   //
-  // ---------------
-  // IF/ID Stage
-  // ---------------
-  // store the decompressed instruction
-  class fetch_entry_t extends Bundle {
-    val address = UInt(64.W)                       // the address of the instructions from below
-    val instruction = UInt(32.W)                   // instruction word
-    val branch_predict = new branchpredict_sbe_t() // this field contains branch prediction information regarding the forward branch path
-    val ex = new exception_t()                     // this field contains exceptions which might have happened earlier, e.g.: fetch exceptions
-  }
-
   // ---------------
   // ID/EX/WB Stage
   // ---------------
   class scoreboard_entry_t extends Bundle {
     val pc = UInt(64.W)                  // PC of instruction
-    val trans_id = UInt(TRANS_ID_BITS.W) // this can potentially be simplified, we could index the scoreboard entry
-                                         // with the transaction id in any case make the width more generic
-    val fu  = fu_t(4.W)                  // functional unit to use
-    val op  = fu_op                      // operation to perform in each functional unit
-    val rs1 = UInt(REG_ADDR_SIZE.W)      // register source address 1
-    val rs2 = UInt(REG_ADDR_SIZE.W)      // register source address 2
-    val rd  = UInt(REG_ADDR_SIZE.W)      // register destination address
+    // val trans_id = UInt(TRANS_ID_BITS.W) // this can potentially be simplified, we could index the scoreboard entry
+    val trans_id = UInt(3.W) // this can potentially be simplified, we could index the scoreboard entry
+                                     // with the transaction id in any case make the width more generic
+    val fu  = fu_t()                     // functional unit to use
+    val op  = fu_op_t()                  // operation to perform in each functional unit
+    // val rs1 = UInt(REG_ADDR_SIZE.W)      // register source address 1
+    // val rs2 = UInt(REG_ADDR_SIZE.W)      // register source address 2
+    // val rd  = UInt(REG_ADDR_SIZE.W)      // register destination address
+    val rs1 = UInt(6.W)      // register source address 1
+    val rs2 = UInt(6.W)      // register source address 2
+    val rd  = UInt(6.W)      // register destination address
     val result = UInt(64.W)              // for unfinished instructions this field also holds the immediate,
                                          // for unfinished floating-point that are partly encoded in rs2, this field also holds rs2
                                          // for unfinished floating-point fused operations (FMADD, FMSUB, FNMADD, FNMSUB)
@@ -893,7 +899,7 @@ object ariane_pkg
   //     // ----------------------
   //     // Extract Bytes from Op
   //     // ----------------------
-  //     def [1:0] extract_transfer_size(fu_op op)
+  //     def [1:0] extract_transfer_size(fu_op_t op)
   //         case (op)
   //             LD, SD, FLD, FSD,
   //             AMO_LRD,   AMO_SCD,
@@ -919,4 +925,23 @@ object ariane_pkg
   //         endcase
   //     endfunction
   // endpackage
+}
+
+
+import ariane_pkg._
+
+object ariane_if_id {
+  // ---------------
+  // IF/ID Stage
+  // ---------------
+  // store the decompressed instruction
+  class fetch_entry_t extends Bundle {
+    val address = UInt(64.W)                       // the address of the instructions from below
+    val instruction = UInt(32.W)                   // instruction word
+    val branch_predict = new branchpredict_sbe_t() // this field contains branch prediction information regarding the forward branch path
+    val ex = new exception_t()                     // this field contains exceptions which might have happened earlier, e.g.: fetch exceptions
+  }
+
+  val REG_ADDR_SIZE:Int = 6
+  val NR_WB_PORTS:Int   = 4
 }

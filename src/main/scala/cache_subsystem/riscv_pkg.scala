@@ -15,7 +15,7 @@
  * Description: Common RISC-V definitions.
  */
 
-package cache_subsystem
+package ariane
 
 import chisel3._
 import chisel3.util._
@@ -30,6 +30,9 @@ object riscv_pkg
   val PRIV_LVL_M:priv_lvl_t = 3.U(2.W)
   val PRIV_LVL_S:priv_lvl_t = 1.U(2.W)
   val PRIV_LVL_U:priv_lvl_t = 0.U(2.W)
+  object priv_lvl_t extends UIntFactory {
+    override def apply(): UInt = apply(2.W)
+  }
 
   // type which holds xlen
   type xlen_t = UInt
@@ -42,6 +45,9 @@ object riscv_pkg
   val Initial:xs_t = 1.U(2.W)
   val Clean  :xs_t = 2.U(2.W)
   val Dirty  :xs_t = 3.U(2.W)
+  object xs_t extends UIntFactory {
+    override def apply(): UInt = apply(2.W)
+  }
 
   // typedef struct packed {
   //     logic         sd;     // signal dirty state - read-only
@@ -113,7 +119,7 @@ object riscv_pkg
   }
 
   def rtype_t(in:instruction_t) : rtype_t = {
-    val rtype_v = Wire(new rtype_t)
+    val rtype_v = new rtype_t()
     rtype_v.funct7 := in.instr(31,25)
     rtype_v.rs2    := in.instr(24,20)
     rtype_v.rs1    := in.instr(19,15)
@@ -125,13 +131,26 @@ object riscv_pkg
   }
 
   class r4type_t extends Bundle {
-    val rs3    = UInt(3.W)
+    val rs3    = UInt(5.W)
     val funct2 = UInt(2.W)
     val rs2    = UInt(5.W)
     val rs1    = UInt(5.W)
     val funct3 = UInt(3.W)
     val rd     = UInt(5.W)
     val opcode = UInt(7.W)
+  }
+
+  def r4type_t(in:instruction_t) : r4type_t = {
+    val ret = Wire(new r4type_t)
+    ret.rs3    := in.instr(31,27)
+    ret.funct2 := in.instr(26,25)
+    ret.rs2    := in.instr(24,20)
+    ret.rs1    := in.instr(19,15)
+    ret.funct3 := in.instr(14,12)
+    ret.rd     := in.instr(11, 7)
+    ret.opcode := in.instr( 6, 0)
+
+    ret
   }
 
   class rftype_t extends Bundle {
@@ -144,6 +163,19 @@ object riscv_pkg
     val opcode = UInt(7.W)
   } // floating-point
 
+  def rftype_t(in:instruction_t) : rftype_t = {
+    val ret = Wire(new rftype_t)
+    ret.funct5 := in.instr(31,27)
+    ret.fmt    := in.instr(26,25)
+    ret.rs2    := in.instr(24,20)
+    ret.rs1    := in.instr(19,15)
+    ret.rm     := in.instr(14,12)
+    ret.rd     := in.instr(11, 7)
+    ret.opcode := in.instr( 6, 0)
+
+    ret
+  }
+
   class rvftype_t extends Bundle {
     val funct2   = UInt(2.W)
     val vecfltop = UInt(5.W)
@@ -155,21 +187,19 @@ object riscv_pkg
     val opcode   = UInt(7.W)
   }  // vectorial floating-point
 
-
   def rvftype_t(in:instruction_t) : rvftype_t = {
-    val rvftype_v = Wire(new rvftype_t)
-    rvftype_v.funct2   := in.instr(31,30)
-    rvftype_v.vecfltop := in.instr(29,25)
-    rvftype_v.rs2      := in.instr(24,20)
-    rvftype_v.rs1      := in.instr(19,15)
-    rvftype_v.repl     := in.instr(14,14)
-    rvftype_v.vfmt     := in.instr(13,12)
-    rvftype_v.rd       := in.instr(11, 7)
-    rvftype_v.opcode   := in.instr( 6, 0)
+    val ret = Wire(new rvftype_t)
+    ret.funct2   := in.instr(31,30)
+    ret.vecfltop := in.instr(29,25)
+    ret.rs2      := in.instr(24,20)
+    ret.rs1      := in.instr(19,15)
+    ret.repl     := in.instr(14)
+    ret.vfmt     := in.instr(13,12)
+    ret.rd       := in.instr(11, 7)
+    ret.opcode   := in.instr( 6, 0)
 
-    return rvftype_v
+    ret
   }
-
 
   class itype_t extends Bundle {
     val imm    = UInt(12.W)
@@ -212,25 +242,151 @@ object riscv_pkg
   }
 
   class utype_t extends Bundle {
-    val funct3 = UInt(10.W)
+    val imm    = UInt(20.W)
     val rd     = UInt(5.W)
     val opcode = UInt(7.W)
+  }
+
+  def utype_t(in:instruction_t) : utype_t = {
+    val utype_v = Wire(new utype_t)
+    utype_v.imm    := in.instr(31,12)
+    utype_v.rd     := in.instr(11, 7)
+    utype_v.opcode := in.instr( 6, 0)
+
+    return utype_v
   }
 
   // atomic instructions
   class atype_t extends Bundle {
-    val funct5 = UInt(5.W)
-    val aq     = UInt(1.W)
-    val rl     = UInt(1.W)
-    val rs2    = UInt(5.W)
-    val rs1    = UInt(5.W)
-    val funct3 = UInt(3.W)
-    val rd     = UInt(5.W)
-    val opcode = UInt(7.W)
+    val funct5 = Wire(UInt(5.W))
+    val aq     = Wire(UInt(1.W))
+    val rl     = Wire(UInt(1.W))
+    val rs2    = Wire(UInt(5.W))
+    val rs1    = Wire(UInt(5.W))
+    val funct3 = Wire(UInt(3.W))
+    val rd     = Wire(UInt(5.W))
+    val opcode = Wire(UInt(7.W))
+  }
+
+  def atype_t(in:instruction_t) : atype_t = {
+    val atype_v = new atype_t()
+    atype_v.funct5 := in.instr(31,27)
+    atype_v.aq     := in.instr(26)
+    atype_v.rl     := in.instr(25)
+    atype_v.rs2    := in.instr(24,20)
+    atype_v.rs1    := in.instr(19,15)
+    atype_v.funct3 := in.instr(14,12)
+    atype_v.rd     := in.instr(11, 7)
+    atype_v.opcode := in.instr( 6, 0)
+
+    atype_v
   }
 
   class instruction_t extends Bundle {
     val instr = UInt(32.W)
+
+    def := (that: UInt) : instruction_t = {
+      this.instr := that
+      this
+    }
+
+    def apply(inst: UInt): instruction_t = {
+      val ret = Wire(new instruction_t())
+      ret.instr := inst
+
+      ret
+    }
+
+    def asRType() : rtype_t = {
+      val ret = Wire(new rtype_t())
+      ret.funct7 := instr(31,25)
+      ret.rs2    := instr(24,20)
+      ret.rs1    := instr(19,15)
+      ret.funct3 := instr(14,12)
+      ret.rd     := instr(11, 7)
+      ret.opcode := instr( 6, 0)
+      ret
+    }
+
+    def asR4Type() : r4type_t = {
+      val ret = Wire(new r4type_t())
+      ret.rs3    := instr(31,27)
+      ret.funct2 := instr(26,25)
+      ret.rs2    := instr(24,20)
+      ret.rs1    := instr(19,15)
+      ret.funct3 := instr(14,12)
+      ret.rd     := instr(11, 7)
+      ret.opcode := instr( 6, 0)
+      ret
+    }
+
+    def asRfType() : rftype_t = {
+      val ret = Wire(new rftype_t())
+      ret.funct5 := instr(31,27)
+      ret.fmt    := instr(26,25)
+      ret.rs2    := instr(24,20)
+      ret.rs1    := instr(19,15)
+      ret.rm     := instr(14,12)
+      ret.rd     := instr(11, 7)
+      ret.opcode := instr( 6, 0)
+      ret
+    }
+
+    def asRvfType() : rvftype_t = {
+      val ret = Wire(new rvftype_t())
+      ret.funct2   := instr(31,30)
+      ret.vecfltop := instr(29,25)
+      ret.rs2      := instr(24,20)
+      ret.rs1      := instr(19,15)
+      ret.repl     := instr(14)
+      ret.vfmt     := instr(13,12)
+      ret.rd       := instr(11, 7)
+      ret.opcode   := instr( 6, 0)
+      ret
+    }
+
+    def asIType() : itype_t = {
+      val ret = Wire(new itype_t())
+      ret.imm    := instr(31,20)
+      ret.rs1    := instr(19,15)
+      ret.funct3 := instr(14,12)
+      ret.rd     := instr(11, 7)
+      ret.opcode := instr( 6, 0)
+      ret
+    }
+
+    def asSType() : stype_t = {
+      val ret = Wire(new stype_t())
+      ret.imm    := instr(31,25)
+      ret.rs2    := instr(24,20)
+      ret.rs1    := instr(19,15)
+      ret.funct3 := instr(14,12)
+      ret.imm0   := instr(11, 7)
+      ret.opcode := instr( 6, 0)
+      ret
+    }
+
+    def asUType() : utype_t = {
+      val ret = Wire(new utype_t())
+      ret.imm    := instr(31,12)
+      ret.rd     := instr(11, 7)
+      ret.opcode := instr( 6, 0)
+      ret
+    }
+
+    def asAType() : atype_t = {
+      val ret = Wire(new atype_t())
+      ret.funct5 := instr(31,27)
+      ret.aq     := instr(26)
+      ret.rl     := instr(25)
+      ret.rs2    := instr(24,20)
+      ret.rs1    := instr(19,15)
+      ret.funct3 := instr(14,12)
+      ret.rd     := instr(11, 7)
+      ret.opcode := instr( 6, 0)
+      ret
+    }
+
     // val  rtype_t        rtype
     // val  r4type_t       r4type
     // val  rftype_t       rftype
@@ -347,27 +503,27 @@ object riscv_pkg
   val STORE_PAGE_FAULT      = 15.U(64.W) // Store page fault
   val DEBUG_REQUEST         = 24.U(64.W) // Debug request
 
-  // val int unsigned IRQ_S_SOFT  = 1
-  // val int unsigned IRQ_M_SOFT  = 3
-  // val int unsigned IRQ_S_TIMER = 5
-  // val int unsigned IRQ_M_TIMER = 7
-  // val int unsigned IRQ_S_EXT   = 9
-  // val int unsigned IRQ_M_EXT   = 11
-  //
-  // val logic [63:0] MIP_SSIP = 1 << IRQ_S_SOFT
-  // val logic [63:0] MIP_MSIP = 1 << IRQ_M_SOFT
-  // val logic [63:0] MIP_STIP = 1 << IRQ_S_TIMER
-  // val logic [63:0] MIP_MTIP = 1 << IRQ_M_TIMER
-  // val logic [63:0] MIP_SEIP = 1 << IRQ_S_EXT
-  // val logic [63:0] MIP_MEIP = 1 << IRQ_M_EXT
-  //
-  // val logic [63:0] S_SW_INTERRUPT    = (1 << 63) | IRQ_S_SOFT
-  // val logic [63:0] M_SW_INTERRUPT    = (1 << 63) | IRQ_M_SOFT
-  // val logic [63:0] S_TIMER_INTERRUPT = (1 << 63) | IRQ_S_TIMER
-  // val logic [63:0] M_TIMER_INTERRUPT = (1 << 63) | IRQ_M_TIMER
-  // val logic [63:0] S_EXT_INTERRUPT   = (1 << 63) | IRQ_S_EXT
-  // val logic [63:0] M_EXT_INTERRUPT   = (1 << 63) | IRQ_M_EXT
-  //
+  val IRQ_S_SOFT  = 1
+  val IRQ_M_SOFT  = 3
+  val IRQ_S_TIMER = 5
+  val IRQ_M_TIMER = 7
+  val IRQ_S_EXT   = 9
+  val IRQ_M_EXT   = 11
+
+  val MIP_SSIP = 1 << IRQ_S_SOFT
+  val MIP_MSIP = 1 << IRQ_M_SOFT
+  val MIP_STIP = 1 << IRQ_S_TIMER
+  val MIP_MTIP = 1 << IRQ_M_TIMER
+  val MIP_SEIP = 1 << IRQ_S_EXT
+  val MIP_MEIP = 1 << IRQ_M_EXT
+
+  val S_SW_INTERRUPT    = ((1 << 63) | IRQ_S_SOFT ).U(64.W)
+  val M_SW_INTERRUPT    = ((1 << 63) | IRQ_M_SOFT ).U(64.W)
+  val S_TIMER_INTERRUPT = ((1 << 63) | IRQ_S_TIMER).U(64.W)
+  val M_TIMER_INTERRUPT = ((1 << 63) | IRQ_M_TIMER).U(64.W)
+  val S_EXT_INTERRUPT   = ((1 << 63) | IRQ_S_EXT  ).U(64.W)
+  val M_EXT_INTERRUPT   = ((1 << 63) | IRQ_M_EXT  ).U(64.W)
+
   // // -----
   // // CSRs
   // // -----

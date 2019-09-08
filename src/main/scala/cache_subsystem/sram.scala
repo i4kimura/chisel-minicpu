@@ -1,6 +1,6 @@
 // Description: SRAM Behavioral Model
 
-package cache_subsystem
+package ariane
 
 import chisel3._
 import chisel3.util._

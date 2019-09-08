@@ -15,7 +15,7 @@
 // This module interfaces with the instruction cache, handles control
 // change request from the back-end and does branch prediction.
 
-package cache_subsystem
+package ariane
 
 import chisel3._
 import chisel3.util._
@@ -23,6 +23,8 @@ import chisel3.Bool
 
 import wt_cache_pkg._
 import ariane_pkg._
+import ariane_if_id._
+
 
 class frontend (ArianeCfg:ariane_cfg_t) extends Module
 {

@@ -43,7 +43,7 @@
 // the replay mechanism gets more complicated as it can be that a 32 bit instruction
 // can not be pushed at once.
 
-package cache_subsystem
+package ariane
 
 import chisel3._
 import chisel3.util._

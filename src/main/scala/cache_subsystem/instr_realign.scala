@@ -19,7 +19,7 @@
 // Furthermore we need to handle the case if we want to start fetching from an unaligned
 // instruction e.g. a branch.
 
-package cache_subsystem
+package ariane
 
 import chisel3._
 import chisel3.util._

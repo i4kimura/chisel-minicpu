@@ -12,7 +12,7 @@
 // Migrated: Luis Vitorio Cargnini, IEEE
 // Date: 09.06.2018
 
-package cache_subsystem
+package ariane
 
 import chisel3._
 import chisel3.util._

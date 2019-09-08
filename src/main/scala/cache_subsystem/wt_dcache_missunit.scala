@@ -3,7 +3,7 @@
 // Description: miss controller for wb dcache. Note that the current assumption
 // is that the port with the highest index issues writes instead of reads.
 
-package cache_subsystem
+package ariane
 
 import chisel3._
 import chisel3.util._

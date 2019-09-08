@@ -25,7 +25,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.Bool
 
-import cache_subsystem.riscv_pkg._
+import riscv_pkg._
 
 class compressed_decoder extends Module
 {
