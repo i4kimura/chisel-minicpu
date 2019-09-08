@@ -51,6 +51,8 @@ import chisel3.Bool
 
 import ariane_pkg._
 import riscv_pkg._
+import ariane_if_id._
+
 
 class instr_queue extends Module {
   val io = IO(new Bundle {
